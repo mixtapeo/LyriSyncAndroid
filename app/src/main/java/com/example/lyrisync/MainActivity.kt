@@ -5,6 +5,7 @@ import android.util.Log
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.RecyclerView
 import com.spotify.android.appremote.api.ConnectionParams
 import com.spotify.android.appremote.api.Connector
 import com.spotify.android.appremote.api.SpotifyAppRemote
@@ -37,12 +38,48 @@ interface LrcLibService {
         @Query("artist_name") artist: String
     ): List<LrcResponse>
 }
-private var syncJob: Job? = null
+
+data class JishoResponse(val data: List<JishoData>)
+data class JishoData(val japanese: List<JishoJapanese>, val senses: List<JishoSense>)
+data class JishoJapanese(val word: String?, val reading: String?)
+data class JishoSense(val english_definitions: List<String>)
+
+private lateinit var lyricAdapter: LyricAdapter
+
+
+interface TranslationService {
+    @GET("translate_a/single")
+    suspend fun getTranslation(
+        @Query("client") client: String = "gtx",
+        @Query("sl") sourceLang: String = "ja",
+        @Query("tl") targetLang: String = "en",
+        @Query("dt") dataType: String = "t",
+        @Query("q") q: String
+    ): List<Any>
+}
+
+// Define the services here
+private val lrcService: LrcLibService by lazy {
+    retrofit2.Retrofit.Builder()
+        .baseUrl("https://lrclib.net/")
+        .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+        .build()
+        .create(LrcLibService::class.java)
+}
+
+private val translationService: TranslationService by lazy {
+    retrofit2.Retrofit.Builder()
+        .baseUrl("https://translate.googleapis.com/")
+        .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+        .build()
+        .create(TranslationService::class.java)
+}
+private var translatedLyrics = listOf<String>()
 class MainActivity : AppCompatActivity() {
 
     private var parsedLyrics = listOf<LyricLine>()
 
-
+    private var syncJob: Job? = null
 
     // 1. Replace with your Client ID from the Spotify Developer Dashboard
     private val clientId = "06f5df4fd4234a06bbc234600ed42851"
@@ -56,6 +93,13 @@ class MainActivity : AppCompatActivity() {
         // Add this to prove the code is reaching this point
         findViewById<TextView>(R.id.songTitleText)?.text = "App Started! Connecting..."
         Log.d("Lyrisync", "onCreate finished")
+
+        val recyclerView = findViewById<RecyclerView>(R.id.lyricRecyclerView)
+        val snapHelper = androidx.recyclerview.widget.LinearSnapHelper()
+        snapHelper.attachToRecyclerView(recyclerView)
+        lyricAdapter = LyricAdapter()
+        recyclerView.adapter = lyricAdapter
+        recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
     }
 
     override fun onStart() {
@@ -68,18 +112,6 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         // 3. Connect to Spotify
-        SpotifyAppRemote.connect(this, connectionParams, object : Connector.ConnectionListener {
-            override fun onConnected(appRemote: SpotifyAppRemote) {
-                spotifyAppRemote = appRemote
-                Log.d("Lyrisync", "Connected to Spotify!")
-                connected()
-            }
-
-            override fun onFailure(throwable: Throwable) {
-                Log.e("Lyrisync", "Connection failed: ${throwable.message}", throwable)
-                // Common causes: Spotify isn't installed or Client ID is wrong
-            }
-        })
         SpotifyAppRemote.connect(this, connectionParams, object : Connector.ConnectionListener {
             override fun onConnected(appRemote: SpotifyAppRemote) {
                 spotifyAppRemote = appRemote
@@ -121,59 +153,140 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var activeIndex = -1
+
     private fun startSyncLoop() {
-        syncJob?.cancel() // Stop any old loops
+        val recyclerView = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.lyricRecyclerView)
+
         syncJob = lifecycleScope.launch {
             while (isActive) {
                 spotifyAppRemote?.playerApi?.playerState?.setResultCallback { playerState ->
                     val currentMs = playerState.playbackPosition
-                    val currentLine = parsedLyrics.lastOrNull { it.timeMs <= currentMs }
 
-                    val japaneseView = findViewById<TextView>(R.id.japaneseLyricText)
-                    if (currentLine != null && japaneseView.text != currentLine.text) {
+                    // Find the index of the line that matches current time
+                    val index = parsedLyrics.indexOfLast { it.timeMs <= currentMs }
+
+                    if (index != -1 && index != activeIndex) {
+                        activeIndex = index
+
+                        // Update the UI on the Main Thread
                         runOnUiThread {
-                            japaneseView.text = currentLine.text
-                            updateJishoDetails(currentLine.text)
+                            // 1. Tell the adapter which line is active
+                            lyricAdapter.activeIndex = index
+                            lyricAdapter.notifyDataSetChanged()
+
+                            // 2. Smoothly scroll to the active line
+                            // Inside your startSyncLoop, replace the smoothScroll line with this:
+                            val layoutManager = recyclerView.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
+                            val centerOfRecyclerView = recyclerView.height / 2
+                            val estimateItemHeight = 80 // Reduced this because lines are tighter now
+                            layoutManager.scrollToPositionWithOffset(index, (recyclerView.height / 2) - (estimateItemHeight / 2))
+                            // 3. Fetch Kanji details for the current line
+                            updateJishoDetails(parsedLyrics[index].text)
                         }
                     }
                 }
-                delay(500) // Check every half-second
+                delay(500) // The 500ms heartbeat
+            }
+        }
+    }
+
+    private fun fetchTranslation(text: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val retrofit = retrofit2.Retrofit.Builder()
+                    .baseUrl("https://translate.googleapis.com/")
+                    .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
+                    .build()
+
+                val service = retrofit.create(TranslationService::class.java)
+                // Replace the previous extraction line with this:
+                val response = service.getTranslation(q = text)
+                val body = response as? List<*>
+                val firstPart = body?.get(0) as? List<*>
+                val secondPart = firstPart?.get(0) as? List<*>
+                val translatedText = secondPart?.get(0)?.toString() ?: "Translation unavailable"
+            } catch (e: Exception) {
+                Log.e("Lyrisync", "Translation failed: ${e.message}")
             }
         }
     }
 
     private fun fetchLyrics(title: String, artist: String) {
-        val retrofit = retrofit2.Retrofit.Builder()
-            .baseUrl("https://lrclib.net/")
-            .addConverterFactory(retrofit2.converter.gson.GsonConverterFactory.create())
-            .build()
-
-        val service = retrofit.create(LrcLibService::class.java)
-
-        // Run on a background thread so the UI doesn't freeze
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val response = service.searchLyrics(title, artist)
-                val bestMatch = response.firstOrNull { it.syncedLyrics != null || it.plainLyrics != null }
+                val response = lrcService.searchLyrics(title, artist)
+                val bestMatch = response.firstOrNull { it.syncedLyrics != null }
 
-                withContext(Dispatchers.Main) {
-                    if (bestMatch != null) {
-                        // For now, let's just show the first line of plain lyrics
-                        val lyrics = bestMatch.plainLyrics ?: "No text lyrics available."
-                        findViewById<TextView>(R.id.japaneseLyricText).text = lyrics.lineSequence().firstOrNull()
-                        Log.d("Lyrisync", "Lyrics Loaded!")
-                        // parse lyrics to sync time
-                        withContext(Dispatchers.Main) {
-                            bestMatch.syncedLyrics?.let {
-                                parsedLyrics = parseLrc(it)
-                            }
-                        }
-                    } else {
-                        findViewById<TextView>(R.id.japaneseLyricText).text = "Lyrics not found."
+                if (bestMatch != null) {
+                    parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
+                    val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
+                    val translationResponse = translationService.getTranslation(q = fullJapaneseText)
+                    val bulkResult = extractTextFromGoogle(translationResponse)
+                    translatedLyrics = bulkResult.split("\n")
+
+                    withContext(Dispatchers.Main) {
+                        // This is the "New Way" to update the UI
+                        lyricAdapter.updateData(parsedLyrics, translatedLyrics)
                     }
                 }
             } catch (e: Exception) {
-                Log.e("Lyrisync", "Network Error: ${e.message}")
+                Log.e("Lyrisync", "Bulk fetch failed: ${e.message}")
+            }
+        }
+    }
+
+    private fun extractTextFromGoogle(response: List<Any>): String {
+        return try {
+            val body = response as? List<*>
+            val segments = body?.get(0) as? List<*>
+            val result = StringBuilder()
+            segments?.forEach { segment ->
+                val parts = segment as? List<*>
+                result.append(parts?.get(0)?.toString() ?: "")
+            }
+            result.toString()
+        } catch (e: Exception) {
+            "Translation Error"
+        }
+    }
+
+    private fun updateJishoDetails(text: String) {
+        val jishoView = findViewById<TextView>(R.id.jishoDetailsText)
+        val kanjiList = text.filter {
+            Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
+        }.toList().distinct()
+
+        if (kanjiList.isEmpty()) {
+            jishoView.text = "No Kanji in this line."
+            return
+        }
+
+        lifecycleScope.launch(Dispatchers.IO) {
+            val details = StringBuilder()
+            val gson = com.google.gson.Gson()
+
+            for (kanji in kanjiList) {
+                try {
+                    val url = java.net.URL("https://jisho.org/api/v1/search/words?keyword=$kanji")
+                    val responseText = url.readText()
+                    val result = gson.fromJson(responseText, JishoResponse::class.java)
+
+                    val firstMatch = result.data.firstOrNull()
+                    if (firstMatch != null) {
+                        val reading = firstMatch.japanese.firstOrNull()?.reading ?: ""
+                        val definition = firstMatch.senses.firstOrNull()?.english_definitions?.joinToString(", ") ?: ""
+
+                        details.append("【 $kanji 】 ($reading)\n")
+                        details.append("→ $definition\n\n")
+                    }
+                } catch (e: Exception) {
+                    Log.e("Lyrisync", "Jisho Error for $kanji: ${e.message}")
+                }
+            }
+
+            withContext(Dispatchers.Main) {
+                jishoView.text = if (details.isEmpty()) "Definitions not found." else details.toString()
             }
         }
     }
@@ -215,10 +328,3 @@ fun parseLrc(lrcContent: String): List<LyricLine> {
 }
 
 
-
-private fun updateJishoDetails(text: String) {
-    if (containsKanji(text)) {
-        Log.d("Lyrisync", "Kanji detected in: $text. Fetching from Jisho...")
-        // We'll put the Jisho API call here next!
-    }
-}
