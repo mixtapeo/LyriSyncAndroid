@@ -50,28 +50,34 @@
             android:background="#3A3A3A"
             android:layout_marginBottom="12dp"/>
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Jisho Details (Kanji Breakdown):"
-            android:textStyle="bold"
-            android:textSize="14sp"
-            android:textColor="#FFFFFF"
-            android:layout_marginBottom="8dp"/>
+<!--        <TextView-->
+<!--            android:layout_width="wrap_content"-->
+<!--            android:layout_height="wrap_content"-->
+<!--            android:text="Jisho Details (Kanji Breakdown):"-->
+<!--            android:textStyle="bold"-->
+<!--            android:textSize="14sp"-->
+<!--            android:textColor="#FFFFFF"-->
+<!--            android:layout_marginBottom="8dp"/>-->
 
-        <ScrollView
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Kanji History" android:textColor="#FFFFFF" android:textStyle="bold"/>
 
-            <TextView
-                android:id="@+id/jishoDetailsText"
-                android:layout_width="match_parent"
+            <ToggleButton
+                android:id="@+id/syncToggleButton"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Listening for Japanese lyrics..."
-                android:textSize="16sp"
-                android:textColor="#E0E0E0"
-                android:lineSpacingExtra="4dp" />
-        </ScrollView>
+                android:textOn="Sync On"
+                android:textOff="Manual"
+                android:checked="true"
+                android:minHeight="0dp"
+                android:background="@drawable/toggle_background" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/jishoRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="8dp" />
     </LinearLayout>
 
 </LinearLayout>

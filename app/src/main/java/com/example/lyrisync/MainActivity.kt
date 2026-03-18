@@ -2,6 +2,9 @@ package com.example.lyrisync
 
 import android.os.Bundle
 import android.util.Log
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -17,6 +20,7 @@ import retrofit2.http.Query
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import android.widget.ToggleButton
 
 data class LrcResponse(
     val id: Int,
@@ -25,12 +29,10 @@ data class LrcResponse(
     val syncedLyrics: String?,
     val plainLyrics: String?
 )
-
 data class LyricLine(
     val timeMs: Long,
     val text: String
 )
-
 interface LrcLibService {
     @GET("api/search")
     suspend fun searchLyrics(
@@ -38,15 +40,6 @@ interface LrcLibService {
         @Query("artist_name") artist: String
     ): List<LrcResponse>
 }
-
-data class JishoResponse(val data: List<JishoData>)
-data class JishoData(val japanese: List<JishoJapanese>, val senses: List<JishoSense>)
-data class JishoJapanese(val word: String?, val reading: String?)
-data class JishoSense(val english_definitions: List<String>)
-
-private lateinit var lyricAdapter: LyricAdapter
-
-
 interface TranslationService {
     @GET("translate_a/single")
     suspend fun getTranslation(
@@ -57,7 +50,6 @@ interface TranslationService {
         @Query("q") q: String
     ): List<Any>
 }
-
 // Define the services here
 private val lrcService: LrcLibService by lazy {
     retrofit2.Retrofit.Builder()
@@ -66,7 +58,6 @@ private val lrcService: LrcLibService by lazy {
         .build()
         .create(LrcLibService::class.java)
 }
-
 private val translationService: TranslationService by lazy {
     retrofit2.Retrofit.Builder()
         .baseUrl("https://translate.googleapis.com/")
@@ -74,11 +65,15 @@ private val translationService: TranslationService by lazy {
         .build()
         .create(TranslationService::class.java)
 }
-private var translatedLyrics = listOf<String>()
+
 class MainActivity : AppCompatActivity() {
-
+    data class JishoResponse(val data: List<JishoData>)
+    private var translatedLyrics = listOf<String>()
+    data class JishoData(val japanese: List<JishoJapanese>, val senses: List<JishoSense>)
+    data class JishoJapanese(val word: String?, val reading: String?)
+    data class JishoSense(val english_definitions: List<String>)
+    private var lyricAdapter: LyricAdapter? = null
     private var parsedLyrics = listOf<LyricLine>()
-
     private var syncJob: Job? = null
 
     // 1. Replace with your Client ID from the Spotify Developer Dashboard
@@ -100,6 +95,13 @@ class MainActivity : AppCompatActivity() {
         lyricAdapter = LyricAdapter()
         recyclerView.adapter = lyricAdapter
         recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        val jishoRv = findViewById<RecyclerView>(R.id.jishoRecyclerView)
+
+        // Initialize the adapter here
+        jishoAdapter = JishoHistoryAdapter(jishoHistory)
+
+        jishoRv.adapter = jishoAdapter
+        jishoRv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
     }
 
     override fun onStart() {
@@ -164,25 +166,21 @@ class MainActivity : AppCompatActivity() {
                     val currentMs = playerState.playbackPosition
 
                     // Find the index of the line that matches current time
+                    // Inside startSyncLoop callback
                     val index = parsedLyrics.indexOfLast { it.timeMs <= currentMs }
-
                     if (index != -1 && index != activeIndex) {
                         activeIndex = index
-
-                        // Update the UI on the Main Thread
                         runOnUiThread {
-                            // 1. Tell the adapter which line is active
-                            lyricAdapter.activeIndex = index
-                            lyricAdapter.notifyDataSetChanged()
+                            // LYRICS always sync highlight
+                            lyricAdapter?.activeIndex = index
+                            lyricAdapter?.notifyDataSetChanged()
 
-                            // 2. Smoothly scroll to the active line
-                            // Inside your startSyncLoop, replace the smoothScroll line with this:
-                            val layoutManager = recyclerView.layoutManager as androidx.recyclerview.widget.LinearLayoutManager
-                            val centerOfRecyclerView = recyclerView.height / 2
-                            val estimateItemHeight = 80 // Reduced this because lines are tighter now
-                            layoutManager.scrollToPositionWithOffset(index, (recyclerView.height / 2) - (estimateItemHeight / 2))
-                            // 3. Fetch Kanji details for the current line
-                            updateJishoDetails(parsedLyrics[index].text)
+                            // AUTO-SCROLL only if toggle is on
+                            val isSyncOn = findViewById<ToggleButton>(R.id.syncToggleButton).isChecked
+                            if (isSyncOn) {
+                                findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(index)
+                                updateJishoDetails(parsedLyrics[index].text)
+                            }
                         }
                     }
                 }
@@ -227,7 +225,7 @@ class MainActivity : AppCompatActivity() {
 
                     withContext(Dispatchers.Main) {
                         // This is the "New Way" to update the UI
-                        lyricAdapter.updateData(parsedLyrics, translatedLyrics)
+                        lyricAdapter?.updateData(parsedLyrics, translatedLyrics)
                     }
                 }
             } catch (e: Exception) {
@@ -251,42 +249,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var isSyncEnabled = true
+    private val jishoHistory = mutableListOf<CharSequence>()
+    private lateinit var jishoAdapter: JishoHistoryAdapter // Standard adapter similar to LyricAdapter
+
     private fun updateJishoDetails(text: String) {
-        val jishoView = findViewById<TextView>(R.id.jishoDetailsText)
         val kanjiList = text.filter {
             Character.UnicodeBlock.of(it) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS
         }.toList().distinct()
 
-        if (kanjiList.isEmpty()) {
-            jishoView.text = "No Kanji in this line."
-            return
-        }
+        if (kanjiList.isEmpty()) return
 
         lifecycleScope.launch(Dispatchers.IO) {
-            val details = StringBuilder()
+            val spannable = android.text.SpannableStringBuilder()
             val gson = com.google.gson.Gson()
 
             for (kanji in kanjiList) {
                 try {
                     val url = java.net.URL("https://jisho.org/api/v1/search/words?keyword=$kanji")
-                    val responseText = url.readText()
-                    val result = gson.fromJson(responseText, JishoResponse::class.java)
+                    val result = gson.fromJson(url.readText(), JishoResponse::class.java)
+                    val match = result.data.firstOrNull()
 
-                    val firstMatch = result.data.firstOrNull()
-                    if (firstMatch != null) {
-                        val reading = firstMatch.japanese.firstOrNull()?.reading ?: ""
-                        val definition = firstMatch.senses.firstOrNull()?.english_definitions?.joinToString(", ") ?: ""
+                    if (match != null) {
+                        val start = spannable.length
+                        spannable.append("【 $kanji 】")
 
-                        details.append("【 $kanji 】 ($reading)\n")
-                        details.append("→ $definition\n\n")
+                        // Highlight the Kanji in a different color (e.g., Orange/Yellow)
+                        spannable.setSpan(
+                            android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FFB74D")),
+                            start + 2, start + 3, // Targets just the character inside brackets
+                            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                        )
+
+                        val reading = match.japanese.firstOrNull()?.reading ?: ""
+                        val def = match.senses.firstOrNull()?.english_definitions?.joinToString(", ") ?: ""
+                        spannable.append(" ($reading)\n→ $def\n\n")
                     }
-                } catch (e: Exception) {
-                    Log.e("Lyrisync", "Jisho Error for $kanji: ${e.message}")
-                }
+                } catch (e: Exception) { Log.e("Lyrisync", "Jisho Error") }
             }
 
+            // Inside updateJishoDetails, change the Main thread block to:
             withContext(Dispatchers.Main) {
-                jishoView.text = if (details.isEmpty()) "Definitions not found." else details.toString()
+                if (spannable.isNotEmpty()) {
+                    jishoHistory.add(0, spannable)
+
+                    // The ?. ensures no crash if the adapter isn't ready yet
+                    jishoAdapter?.notifyItemInserted(0)
+
+                    if (isSyncEnabled) {
+                        findViewById<RecyclerView>(R.id.jishoRecyclerView).scrollToPosition(0)
+                    }
+                }
             }
         }
     }
@@ -327,4 +340,25 @@ fun parseLrc(lrcContent: String): List<LyricLine> {
     return lyricList.sortedBy { it.timeMs }
 }
 
+class JishoHistoryAdapter(private val history: List<CharSequence>) :
+    RecyclerView.Adapter<JishoHistoryAdapter.ViewHolder>() {
 
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        // We can reuse a simple layout or just a CardView with a TextView
+        val content: TextView = view.findViewById(R.id.cardContent)
+    }
+
+    override fun onCreateViewHolder(
+        p0: ViewGroup,
+        p1: Int
+    ): ViewHolder {
+        val view = LayoutInflater.from(p0.context).inflate(R.layout.item_jisho_card, p0, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.content.text = history[position]
+    }
+
+    override fun getItemCount() = history.size
+}

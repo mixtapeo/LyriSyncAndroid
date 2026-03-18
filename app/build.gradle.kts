@@ -33,6 +33,9 @@ android {
     buildFeatures {
         compose = true
     }
+    viewBinding {
+        enable = true
+    }
 }
 
 dependencies {
@@ -46,6 +49,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.common)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.cardview)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
