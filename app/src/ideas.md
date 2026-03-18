@@ -1,0 +1,5 @@
+- underlining parts of sentences
+- auto mode, kanji only mode
+  - kanji only is just kanji in jisho
+  - auto is using many words in one token
+- settings page to change to furigana, kata or hirigana under.
