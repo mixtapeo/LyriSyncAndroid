@@ -20,7 +20,6 @@ class SettingsActivity : AppCompatActivity() {
         val switchAutoScroll = findViewById<SwitchCompat>(R.id.switchAutoScroll)
         val btnClearHistory = findViewById<Button>(R.id.btnClearHistory)
         val spinnerSubtitleMode = findViewById<Spinner>(R.id.spinnerSubtitleMode)
-
         val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
 
         // --- 1. Setup the Dropdown (Spinner) ---

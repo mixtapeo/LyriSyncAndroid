@@ -2,6 +2,7 @@ package com.example.lyrisync
 
 import android.content.Context
 import android.graphics.Color
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,17 +12,23 @@ import androidx.recyclerview.widget.RecyclerView
 class LyricAdapter(
     private var lyrics: List<LyricLine> = emptyList(),
     private var translations: List<String> = emptyList(),
-    // 1. Add the new Furigana list
-    private var furiganaList: List<String> = emptyList()
+    private var furiganaList: List<String> = emptyList(),
+    private var highlightedWords: List<List<String>> = emptyList()
 ) : RecyclerView.Adapter<LyricAdapter.LyricViewHolder>() {
 
     var activeIndex: Int = -1
 
-    // 2. Update the function to accept 3 lists instead of 2
-    fun updateData(newLyrics: List<LyricLine>, newTranslations: List<String>, newFurigana: List<String>) {
+    fun updateData(
+        newLyrics: List<LyricLine>,
+        newTranslations: List<String>,
+        newFurigana: List<String>,
+        newHighlights: List<List<String>>
+    ) {
+        Log.d("Lyrisync-Debug", "LyricAdapter updateData: Lyrics(${newLyrics.size}), Furigana(${newFurigana.size}), Highlights(${newHighlights.size})")
         this.lyrics = newLyrics
         this.translations = newTranslations
         this.furiganaList = newFurigana
+        this.highlightedWords = newHighlights
         notifyDataSetChanged()
     }
 
@@ -40,61 +47,59 @@ class LyricAdapter(
         holder.jp.text = lyrics[position].text
         holder.en.text = translations.getOrNull(position) ?: ""
 
-        // 3. Bind the Furigana text to the new UI element
-        holder.furigana?.text = furiganaList.getOrNull(position) ?: ""
+        val furiganaText = furiganaList.getOrNull(position) ?: ""
+        holder.furigana?.text = furiganaText
 
         if (position == activeIndex) {
-            holder.itemView.alpha = 1.0f // Fully visible
-            holder.jp.setTextColor(Color.parseColor("#1DB954")) // Spotify Green
+            holder.itemView.alpha = 1.0f
+            holder.jp.setTextColor(android.graphics.Color.parseColor("#1DB954"))
         } else {
-            holder.itemView.alpha = 0.3f // Faded out
-            holder.jp.setTextColor(Color.WHITE)
+            holder.itemView.alpha = 0.3f
+            holder.jp.setTextColor(android.graphics.Color.WHITE)
         }
         val spannable = android.text.SpannableString(lyrics[position].text)
-
-        // Find all Kanji in this specific line
         val text = lyrics[position].text
-        for (i in text.indices) {
-            if (Character.UnicodeBlock.of(text[i]) == Character.UnicodeBlock.CJK_UNIFIED_IDEOGRAPHS) {
-                val kanjiRegex = Regex("[\\u4e00-\\u9faf]+")
-                val matches = kanjiRegex.findAll(text)
 
-                for (match in matches) {
-                    spannable.setSpan(
-                        android.text.style.UnderlineSpan(),
-                        match.range.first, match.range.last + 1,
-                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                    spannable.setSpan(
-                        android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FFD54F")),
-                        match.range.first, match.range.last + 1,
-                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
+        val wordsToHighlight = highlightedWords.getOrNull(position) ?: emptyList()
+        var searchStartIndex = 0
+
+        for (word in wordsToHighlight) {
+            val startIndex = text.indexOf(word, searchStartIndex)
+
+            if (startIndex != -1) {
+                val endIndex = startIndex + word.length
+
+                spannable.setSpan(
+                    android.text.style.UnderlineSpan(),
+                    startIndex, endIndex,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                spannable.setSpan(
+                    android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FFD54F")),
+                    startIndex, endIndex,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+                searchStartIndex = endIndex
             }
         }
 
-        // --- SUBTITLE TOGGLE LOGIC ---
-        // 1. Get the current setting from SharedPreferences
         val sharedPrefs = holder.itemView.context.getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
-        val subtitleMode = sharedPrefs.getInt("SUBTITLE_MODE", 2) // Default to 2
+        val subtitleMode = sharedPrefs.getInt("SUBTITLE_MODE", 2)
 
-        // 2. Toggle visibility based on the Mode
-        // Notice we are using your 'en' variable and the safe 'furigana?' variable
         when (subtitleMode) {
-            0 -> { // None
+            0 -> {
                 holder.furigana?.visibility = View.GONE
                 holder.en.visibility = View.GONE
             }
-            1 -> { // Furigana Only
+            1 -> {
                 holder.furigana?.visibility = View.VISIBLE
                 holder.en.visibility = View.GONE
             }
-            2 -> { // Furigana + Translation
+            2 -> {
                 holder.furigana?.visibility = View.VISIBLE
                 holder.en.visibility = View.VISIBLE
             }
-            3 -> { // Only Translation
+            3 -> {
                 holder.furigana?.visibility = View.GONE
                 holder.en.visibility = View.VISIBLE
             }
