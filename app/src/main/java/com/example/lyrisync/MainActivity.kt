@@ -77,8 +77,7 @@ private val translationService: TranslationService by lazy {
 }
 @Dao
 interface JishoDao {
-    // Remove 'suspend' to avoid the Continuation erasure clash
-    @SqlQuery("SELECT * FROM dictionary WHERE kanji = :query OR reading = :query LIMIT 1")
+    @SqlQuery("SELECT * FROM dictionary WHERE kanji LIKE '%' || :query || '%'  OR reading LIKE '%' || :query || '%'  LIMIT 1")
     fun getDefinition(query: String): JishoEntry?
 }
 @Entity(tableName = "dictionary")
@@ -399,6 +398,28 @@ class MainActivity : AppCompatActivity() {
             SpotifyAppRemote.disconnect(it)
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+
+        val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
+
+        // Check for History Wipe
+        val wipeRequested = sharedPrefs.getBoolean("WIPE_REQUESTED", false)
+        if (wipeRequested) {
+            jishoHistory.clear()
+            jishoAdapter?.notifyDataSetChanged()
+            sharedPrefs.edit().putBoolean("WIPE_REQUESTED", false).apply()
+        }
+
+        // Check for Lyric Subtitle Change
+        val refreshLyricsRequested = sharedPrefs.getBoolean("REFRESH_LYRICS_REQUESTED", false)
+        if (refreshLyricsRequested) {
+            // Redraw the entire lyric list so the new visibility settings apply
+            findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.lyricRecyclerView).adapter?.notifyDataSetChanged()
+            sharedPrefs.edit().putBoolean("REFRESH_LYRICS_REQUESTED", false).apply()
+        }
+    }
 }
 
 // LRC files look like [00:12.34] xxxx. We need to convert 00:12.34 into total milliseconds.
@@ -443,7 +464,7 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
         // 1. Set the Lyric Line Text
         holder.lineHeader.text = item.lyricText
 
-        // 2. Clear out old boxes (RecyclerView recycles views, so we must clean it)
+        // 2. Clear out old boxes
         holder.container.removeAllViews()
 
         // 3. Create a "Small Box" for every Kanji definition in this line
@@ -453,9 +474,8 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                 text = definition
                 textSize = 15f
                 setTextColor(android.graphics.Color.parseColor("#E0E0E0"))
-                setPadding(32, 24, 32, 24) // Inner padding of the small box
+                setPadding(32, 24, 32, 24)
 
-                // Add margins so the small boxes don't touch each other
                 val marginParams = android.widget.LinearLayout.LayoutParams(
                     android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT
@@ -463,13 +483,11 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                 marginParams.setMargins(0, 0, 0, 16)
                 layoutParams = marginParams
 
-                // Draw the actual "Small Box" background (Lighter Gray with rounded corners)
                 val drawable = android.graphics.drawable.GradientDrawable()
                 drawable.setColor(android.graphics.Color.parseColor("#383838"))
                 drawable.cornerRadius = 16f
                 background = drawable
             }
-            // Add the small box into the Big Box's container
             holder.container.addView(smallBox)
         }
     }

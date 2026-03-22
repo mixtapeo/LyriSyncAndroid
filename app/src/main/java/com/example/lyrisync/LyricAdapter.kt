@@ -1,5 +1,6 @@
 package com.example.lyrisync
 
+import android.content.Context
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
@@ -23,6 +24,10 @@ class LyricAdapter(
     class LyricViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val jp: TextView = view.findViewById(R.id.itemJp)
         val en: TextView = view.findViewById(R.id.itemEn)
+
+        // 2. Safely look for a Furigana view.
+        // If you don't have this in your XML yet, it just returns null instead of crashing!
+        val furigana: TextView? = view.findViewById(R.id.itemFurigana)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LyricViewHolder {
@@ -65,10 +70,34 @@ class LyricAdapter(
             }
         }
 
+        // --- SUBTITLE TOGGLE LOGIC ---
+        // 1. Get the current setting from SharedPreferences
+        val sharedPrefs = holder.itemView.context.getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
+        val subtitleMode = sharedPrefs.getInt("SUBTITLE_MODE", 2) // Default to 2
+
+        // 2. Toggle visibility based on the Mode
+        // Notice we are using your 'en' variable and the safe 'furigana?' variable
+        when (subtitleMode) {
+            0 -> { // None
+                holder.furigana?.visibility = View.GONE
+                holder.en.visibility = View.GONE
+            }
+            1 -> { // Furigana Only
+                holder.furigana?.visibility = View.VISIBLE
+                holder.en.visibility = View.GONE
+            }
+            2 -> { // Furigana + Translation
+                holder.furigana?.visibility = View.VISIBLE
+                holder.en.visibility = View.VISIBLE
+            }
+            3 -> { // Only Translation
+                holder.furigana?.visibility = View.GONE
+                holder.en.visibility = View.VISIBLE
+            }
+        }
+
         holder.jp.text = spannable
     }
-
-
 
     override fun getItemCount() = lyrics.size
 }

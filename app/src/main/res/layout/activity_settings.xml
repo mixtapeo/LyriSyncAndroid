@@ -30,6 +30,22 @@
         android:background="#333333"
         android:layout_marginBottom="24dp"/>
 
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Lyric Subtitles"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <Spinner
+        android:id="@+id/spinnerSubtitleMode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:backgroundTint="#FFFFFF"
+        android:layout_marginBottom="24dp"/>
+    
     <Button
         android:id="@+id/btnClearHistory"
         android:layout_width="match_parent"
