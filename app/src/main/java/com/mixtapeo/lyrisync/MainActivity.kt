@@ -56,8 +56,12 @@ interface LrcLibService {
         @ApiQuery("track_name") track: String,
         @ApiQuery("artist_name") artist: String
     ): List<LrcResponse>
+    // for search function
+    @GET("api/search")
+    suspend fun searchGeneral(
+        @ApiQuery("q") query: String
+    ): List<LrcResponse>
 }
-
 interface TranslationService {
     @GET("translate_a/single")
     suspend fun getTranslation(
@@ -396,53 +400,103 @@ class MainActivity : AppCompatActivity() {
         }
 
         // --- 3. BOTTOM NAVIGATION ---
+        // The .post block waits for the UI to measure itself before doing math
         val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
         val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
-        val bottomNavigationView =
-            findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
+        val searchScreen = findViewById<android.view.View>(R.id.searchScreen) // NEW
+        val bottomNavigationView = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
 
-        // The .post block waits for the UI to measure itself before doing math
+        // Setup Search UI
+        val searchInput = findViewById<android.widget.EditText>(R.id.searchInput)
+        val searchRv = findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.searchResultsRecyclerView)
+        val searchAdapter = SearchAdapter()
+        searchRv.adapter = searchAdapter
+        searchRv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+
+        // Listen for the "Enter/Search" key on the keyboard
+        searchInput.setOnEditorActionListener { v, actionId, event ->
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                val query = searchInput.text.toString()
+                if (query.isNotBlank()) {
+                    // Hide the keyboard
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+
+                    // Fire the API Call
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        try {
+                            val results = lrcService.searchGeneral(query)
+                            withContext(Dispatchers.Main) {
+                                searchAdapter.updateData(results)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("Lyrisync", "Search failed", e)
+                        }
+                    }
+                }
+                true
+            } else {
+                false
+            }
+        }
+
         homeScreen.post {
-            // Get the EXACT pixel width of this specific phone's screen
             val trueWidth = homeScreen.width.toFloat()
+            val trueHeight = homeScreen.height.toFloat() // We need Height for Y-Axis sliding!
 
-            // 1. ROTATION FIX: Snap to the correct screen instantly when the app loads or rotates
+            // Initial State setup
             if (bottomNavigationView.selectedItemId == R.id.nav_settings) {
                 homeScreen.translationX = -trueWidth
                 settingsScreen.translationX = 0f
+                searchScreen.translationY = trueHeight
             } else {
                 homeScreen.translationX = 0f
                 settingsScreen.translationX = trueWidth
+                searchScreen.translationY = trueHeight // Hide Search below the screen
             }
 
-            // 2. THE ANIMATION WIRING
             bottomNavigationView.setOnItemSelectedListener { item ->
+                // Check what tab we are CURRENTLY on before the change happens
+                val isSearchCurrentlyOpen = bottomNavigationView.selectedItemId == R.id.nav_search
+
                 when (item.itemId) {
                     R.id.nav_home -> {
-                        // Slide Home in (to 0), Slide Settings out (to trueWidth)
-                        homeScreen.animate().translationX(0f).setDuration(300).start()
-                        settingsScreen.animate().translationX(trueWidth).setDuration(300).start()
+                        if (isSearchCurrentlyOpen) {
+                            // Instant Snap (No animation) so it's ready when the drawer drops
+                            homeScreen.translationX = 0f
+                            settingsScreen.translationX = trueWidth
+                        } else {
+                            // Smooth Slide (Normal X-axis navigation)
+                            homeScreen.animate().translationX(0f).setDuration(300).start()
+                            settingsScreen.animate().translationX(trueWidth).setDuration(300).start()
+                        }
+
+                        // Always slide Search DOWN and out of the way
+                        searchScreen.animate().translationY(trueHeight).setDuration(300).start()
 
                         findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(0)
                         true
                     }
-
                     R.id.nav_search -> {
-                        android.widget.Toast.makeText(
-                            this@MainActivity,
-                            "Search coming soon!",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                        false
-                    }
-
-                    R.id.nav_settings -> {
-                        // Slide Settings in (to 0), Slide Home out (to -trueWidth)
-                        homeScreen.animate().translationX(-trueWidth).setDuration(300).start()
-                        settingsScreen.animate().translationX(0f).setDuration(300).start()
+                        // Slide Search UP (to 0) over top of whatever is currently on screen
+                        searchScreen.animate().translationY(0f).setDuration(300).start()
                         true
                     }
+                    R.id.nav_settings -> {
+                        if (isSearchCurrentlyOpen) {
+                            // Instant Snap (No animation)
+                            homeScreen.translationX = -trueWidth
+                            settingsScreen.translationX = 0f
+                        } else {
+                            // Smooth Slide (Normal X-axis navigation)
+                            homeScreen.animate().translationX(-trueWidth).setDuration(300).start()
+                            settingsScreen.animate().translationX(0f).setDuration(300).start()
+                        }
 
+                        // Always slide Search DOWN and out of the way
+                        searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                        true
+                    }
                     else -> false
                 }
             }
@@ -730,4 +784,38 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
     }
 
     override fun getItemCount() = history.size
+}
+
+class SearchAdapter(
+    private var results: List<LrcResponse> = emptyList()
+) : RecyclerView.Adapter<SearchAdapter.ViewHolder>() {
+
+    fun updateData(newResults: List<LrcResponse>) {
+        this.results = newResults
+        notifyDataSetChanged()
+    }
+
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val title: TextView = view.findViewById(android.R.id.text1)
+        val artist: TextView = view.findViewById(android.R.id.text2)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        // Using Android's built-in 2-line list item to save time!
+        val view = LayoutInflater.from(parent.context)
+            .inflate(android.R.layout.simple_list_item_2, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val item = results[position]
+        holder.title.text = item.name
+        holder.title.setTextColor(android.graphics.Color.WHITE)
+//        holder.title.style = android.graphics.Typeface.BOLD
+
+        holder.artist.text = "${item.artistName} • Has Synced Lyrics: ${item.syncedLyrics != null}"
+        holder.artist.setTextColor(android.graphics.Color.parseColor("#A0A0A0"))
+    }
+
+    override fun getItemCount() = results.size
 }
