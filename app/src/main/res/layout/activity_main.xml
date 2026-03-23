@@ -1,92 +1,129 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="vertical"
-    android:weightSum="10"
     android:background="#121212">
-    <ImageButton
-        android:id="@+id/settingsButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="end|top"
-        android:background="?attr/selectableItemBackgroundBorderless"
-        android:src="@android:drawable/ic_menu_preferences"
-        app:tint="#FFFFFF"
-        android:contentDescription="Settings" />
-    <!-- Info + Jisho Section -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/lyricRecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="4"
-        android:background="#121212"
-        android:clipToPadding="false"
-        android:paddingTop="80dp"
-        android:paddingBottom="80dp" />
 
     <LinearLayout
+        android:id="@+id/topBar"
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="6"
-        android:background="#202124"
+        android:layout_height="wrap_content"
+        android:background="#1E1E1E"
+        android:elevation="8dp"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="12dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
         <TextView
             android:id="@+id/songTitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Song Title"
+            android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="#8AB4F8"
-            android:layout_marginBottom="4dp"/>
+            android:ellipsize="end"
+            android:singleLine="true"/>
 
         <TextView
             android:id="@+id/artistNameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Artist Name"
+            android:textColor="#1DB954"
             android:textSize="14sp"
-            android:textColor="#CCCCCC"
-            android:layout_marginBottom="12dp"/>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#3A3A3A"
-            android:layout_marginBottom="12dp"/>
-
-<!--        <TextView-->
-<!--            android:layout_width="wrap_content"-->
-<!--            android:layout_height="wrap_content"-->
-<!--            android:text="Jisho Details (Kanji Breakdown):"-->
-<!--            android:textStyle="bold"-->
-<!--            android:textSize="14sp"-->
-<!--            android:textColor="#FFFFFF"-->
-<!--            android:layout_marginBottom="8dp"/>-->
-
-        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Kanji History" android:textColor="#FFFFFF" android:textStyle="bold"/>
-
-            <ToggleButton
-                android:id="@+id/syncToggleButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textOn="Sync On"
-                android:textOff="Manual"
-                android:checked="true"
-                android:minHeight="0dp"
-                android:background="@drawable/toggle_background" />
-        </LinearLayout>
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/jishoRecyclerView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_marginTop="8dp" />
+            android:ellipsize="end"
+            android:singleLine="true"
+            android:layout_marginTop="2dp"/>
     </LinearLayout>
 
-</LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        android:weightSum="10"
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/lyricRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="5"
+            android:background="#121212"
+            android:clipToPadding="false"
+            android:paddingTop="24dp"
+            android:paddingBottom="80dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="5"
+            android:background="#202124"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Kanji History"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+
+                <ToggleButton
+                    android:id="@+id/syncToggleButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:textOn="Sync On"
+                    android:textOff="Manual"
+                    android:checked="true"
+                    android:textSize="12sp"
+                    android:background="@drawable/toggle_background" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#3A3A3A"
+                android:layout_marginBottom="8dp"/>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/jishoRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottomNavigation"
+        style="@style/Widget.Material3.BottomNavigationView"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:background="#121212"
+        android:theme="@style/M3BottomNavOverride"
+        app:elevation="0dp"
+        app:itemIconTint="@color/m3_icon_colors"
+        app:itemTextColor="@color/m3_text_colors"
+        app:labelVisibilityMode="labeled"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:menu="@menu/bottom_nav_menu" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -54,5 +54,38 @@ class SettingsActivity : AppCompatActivity() {
             sharedPrefs.edit().putBoolean("WIPE_REQUESTED", true).apply()
             Toast.makeText(this, "History cleared!", Toast.LENGTH_SHORT).show()
         }
+        // --- BOTTOM NAVIGATION WIRING (SETTINGS SCREEN) ---
+        val bottomNavigationView = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
+
+        // 1. Force the UI to highlight the Settings gear icon!
+        bottomNavigationView.selectedItemId = R.id.nav_settings
+
+        // 2. Listen for taps
+        bottomNavigationView.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    // Because MainActivity is sitting right underneath this screen,
+                    // going "Home" just means destroying the Settings screen!
+                    finish()
+                    true
+                }
+                R.id.nav_search -> {
+                    android.widget.Toast.makeText(this, "Search coming soon!", android.widget.Toast.LENGTH_SHORT).show()
+                    false
+                }
+                R.id.nav_settings -> {
+                    // We are already here, do nothing.
+                    true
+                }
+                else -> false
+            }
+        }
+    }
+    // This intercepts the activity closing and plays our reverse animation
+    @Suppress("DEPRECATION")
+    override fun finish() {
+        super.finish()
+        // Forces the reverse slide animation when you press the back button
+        overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
     }
 }

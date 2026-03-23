@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsetsController
 import android.widget.TextView
 import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
@@ -22,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import androidx.core.graphics.toColorInt
+import androidx.core.view.WindowInsetsCompat
 import androidx.room.Query as SqlQuery
 import retrofit2.http.Query as ApiQuery
 import androidx.room.Dao
@@ -314,27 +316,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+        actionBar?.hide()
         setContentView(R.layout.activity_main)
 
-        findViewById<TextView>(R.id.songTitleText)?.text = "Waiting for Spotify..."
+        findViewById<TextView>(R.id.songTitleText)?.text = "App Started! Connecting..."
+        Log.d("Lyrisync", "onCreate finished")
 
-        val settingsBtn = findViewById<android.view.View>(R.id.settingsButton)
-        settingsBtn.setOnClickListener {
-            val intent = android.content.Intent(this, SettingsActivity::class.java)
-            startActivity(intent)
-        }
+        // --- 1. SETUP MAIN CONTENT LISTS ---
         val recyclerView = findViewById<RecyclerView>(R.id.lyricRecyclerView)
         val snapHelper = androidx.recyclerview.widget.LinearSnapHelper()
         snapHelper.attachToRecyclerView(recyclerView)
         lyricAdapter = LyricAdapter()
         recyclerView.adapter = lyricAdapter
         recyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
-        val jishoRv = findViewById<RecyclerView>(R.id.jishoRecyclerView)
 
+        val jishoRv = findViewById<RecyclerView>(R.id.jishoRecyclerView)
         jishoAdapter = JishoHistoryAdapter(jishoHistory)
         jishoRv.adapter = jishoAdapter
         jishoRv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
+        // --- 2. SETUP SYNC TOGGLE ---
         val syncBtn = findViewById<ToggleButton>(R.id.syncToggleButton)
         syncBtn.setOnCheckedChangeListener { _, isChecked ->
             isSyncEnabled = isChecked
@@ -342,6 +344,36 @@ class MainActivity : AppCompatActivity() {
                 syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf("#1DB954".toColorInt())
             } else {
                 syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.GRAY)
+            }
+        }
+
+        // --- 3. BULLETPROOF BOTTOM NAVIGATION ---
+        val bottomNavigationView = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
+
+        bottomNavigationView.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(0)
+                    true
+                }
+                R.id.nav_search -> {
+                    android.widget.Toast.makeText(this, "Search coming soon!", android.widget.Toast.LENGTH_SHORT).show()
+                    false
+                }
+                R.id.nav_settings -> {
+                    val intent = android.content.Intent(this, SettingsActivity::class.java)
+
+                    // Modern AndroidX Animation handling (Works on all Android versions)
+                    val options = androidx.core.app.ActivityOptionsCompat.makeCustomAnimation(
+                        this,
+                        R.anim.slide_in_right,
+                        R.anim.slide_out_left
+                    )
+
+                    startActivity(intent, options.toBundle())
+                    false
+                }
+                else -> false
             }
         }
     }
