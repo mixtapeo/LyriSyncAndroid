@@ -120,9 +120,19 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+// 1. The new model to hold raw data for Anki and color syncing
+data class JishoWord(
+    val phrase: String,
+    val reading: String,
+    val meaning: String,
+    val formattedText: CharSequence,
+    val wordIndex: Int // Keeps the color synced with the lyrics!
+)
+
+// 2. Update the Big Box model to use our new word model
 data class JishoLineSet(
     val lyricText: String,
-    val definitions: List<CharSequence>
+    val words: List<JishoWord> // Changed from List<CharSequence>
 )
 
 class MainActivity : AppCompatActivity() {
@@ -227,10 +237,11 @@ class MainActivity : AppCompatActivity() {
                 val extractDuration = System.currentTimeMillis() - extractStart
 
                 val lineReadings = mutableListOf<String>()
-                val lineDefinitions = mutableListOf<CharSequence>()
+                val lineJishoWords = mutableListOf<JishoWord>() // Replaced lineDefinitions
 
-                for (phrase in lineWords) {
-                    val entry = queryCache[phrase] // Use the cache directly!
+                // Use forEachIndexed so we can track the exact color index!
+                lineWords.forEachIndexed { wordIndex, phrase ->
+                    val entry = queryCache[phrase]
                     if (entry != null) {
                         val reading = entry.reading
                         if (!reading.isNullOrBlank()) {
@@ -247,15 +258,20 @@ class MainActivity : AppCompatActivity() {
                                 spannable.append("【 $phrase 】 ($displayReading)\n→ $definitionText\n\n")
                                 songDictionary[phrase] = spannable
                             }
-                            songDictionary[phrase]?.let { lineDefinitions.add(it) }
+                            // Save the complete object for the UI and Anki
+                            songDictionary[phrase]?.let { formatted ->
+                                lineJishoWords.add(
+                                    JishoWord(phrase, reading ?: phrase, definitionText, formatted, wordIndex)
+                                )
+                            }
                         }
                     }
                 }
 
                 furiganaLyrics.add(lineReadings.joinToString(" • "))
 
-                if (lineDefinitions.isNotEmpty()) {
-                    preparedLineSets[index] = JishoLineSet(lineText, lineDefinitions)
+                if (lineJishoWords.isNotEmpty()) {
+                    preparedLineSets[index] = JishoLineSet(lineText, lineJishoWords)
                 }
 
                 // Log slow lines (anything taking more than 100ms)
@@ -504,6 +520,14 @@ fun parseLrc(lrcContent: String): List<LyricLine> {
 class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
     RecyclerView.Adapter<JishoHistoryAdapter.ViewHolder>() {
 
+    // Same Color Palette as the Lyrics!
+    private val highlightColors = intArrayOf(
+        "#FFD54F".toColorInt(), // Yellow
+        "#81C784".toColorInt(), // Green
+        "#64B5F6".toColorInt(), // Blue
+        "#E57373".toColorInt(), // Red
+        "#BA68C8".toColorInt()  // Purple
+    )
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val lineHeader: TextView = view.findViewById(R.id.lineHeader)
         val container: android.widget.LinearLayout = view.findViewById(R.id.definitionsContainer)
@@ -521,9 +545,11 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
         holder.container.removeAllViews()
 
         val context = holder.itemView.context
-        for (definition in item.definitions) {
+
+        // Loop through our new JishoWord objects
+        for (jishoWord in item.words) {
             val smallBox = TextView(context).apply {
-                text = definition
+                text = jishoWord.formattedText
                 textSize = 15f
                 setTextColor(android.graphics.Color.parseColor("#E0E0E0"))
                 setPadding(32, 24, 32, 24)
@@ -535,10 +561,36 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                 marginParams.setMargins(0, 0, 0, 16)
                 layoutParams = marginParams
 
+                // 1. Color Match: Set the border stroke to match the lyric highlight!
+                val assignedColor = highlightColors[jishoWord.wordIndex % highlightColors.size]
                 val drawable = android.graphics.drawable.GradientDrawable()
-                drawable.setColor(android.graphics.Color.parseColor("#383838"))
+                drawable.setColor("#383838".toColorInt())
                 drawable.cornerRadius = 16f
+                drawable.setStroke(4, assignedColor) // 4px colored border
                 background = drawable
+
+                // 2. Anki Integration: Make the box clickable
+                isClickable = true
+                isFocusable = true
+
+                // Add a subtle ripple effect when tapped
+                val typedValue = android.util.TypedValue()
+                context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
+                foreground = androidx.core.content.ContextCompat.getDrawable(context, typedValue.resourceId)
+
+                setOnClickListener {
+                    // Format the text for the flashcard
+                    val flashcardText = "${jishoWord.phrase} [${jishoWord.reading}]\n\n${jishoWord.meaning}"
+
+                    // Create an Android Share Intent (AnkiDroid will appear in this list!)
+                    val sendIntent = android.content.Intent().apply {
+                        action = android.content.Intent.ACTION_SEND
+                        putExtra(android.content.Intent.EXTRA_TEXT, flashcardText)
+                        type = "text/plain"
+                    }
+                    val shareIntent = android.content.Intent.createChooser(sendIntent, "Send to Anki")
+                    context.startActivity(shareIntent)
+                }
             }
             holder.container.addView(smallBox)
         }

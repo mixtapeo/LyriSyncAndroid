@@ -1,13 +1,13 @@
 package com.example.lyrisync
 
 import android.content.Context
-import android.graphics.Color
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import androidx.core.graphics.toColorInt
 
 class LyricAdapter(
     private var lyrics: List<LyricLine> = emptyList(),
@@ -63,11 +63,24 @@ class LyricAdapter(
         val wordsToHighlight = highlightedWords.getOrNull(position) ?: emptyList()
         var searchStartIndex = 0
 
-        for (word in wordsToHighlight) {
+        // 1. Define your Color Palette
+        val highlightColors = intArrayOf(
+            "#FFD54F".toColorInt(), // Yellow
+            "#81C784".toColorInt(), // Green
+            "#64B5F6".toColorInt(), // Blue
+            "#E57373".toColorInt(), // Red
+            "#BA68C8".toColorInt()  // Purple
+        )
+
+        // 2. Use the index to pick the color
+        wordsToHighlight.forEachIndexed { wordIndex, word ->
             val startIndex = text.indexOf(word, searchStartIndex)
 
             if (startIndex != -1) {
                 val endIndex = startIndex + word.length
+
+                // Assign the color from the palette
+                val assignedColor = highlightColors[wordIndex % highlightColors.size]
 
                 spannable.setSpan(
                     android.text.style.UnderlineSpan(),
@@ -75,7 +88,7 @@ class LyricAdapter(
                     android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
                 spannable.setSpan(
-                    android.text.style.ForegroundColorSpan(android.graphics.Color.parseColor("#FFD54F")),
+                    android.text.style.ForegroundColorSpan(assignedColor),
                     startIndex, endIndex,
                     android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
