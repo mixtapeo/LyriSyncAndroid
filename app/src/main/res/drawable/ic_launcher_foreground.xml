@@ -1,8 +1,8 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="410dp"
-    android:height="425dp"
-    android:viewportWidth="200"
-    android:viewportHeight="200">
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="410"
+    android:viewportHeight="425">
 <!--  200x200: Warning:(2, 20) Limit vector icons sizes to 200×200 to keep icon drawing fast; see https://developer.android.com/studio/write/vector-asset-studio#when for more-->
   <group>
     <clip-path
