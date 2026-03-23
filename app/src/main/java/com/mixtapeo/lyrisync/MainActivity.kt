@@ -44,10 +44,12 @@ data class LrcResponse(
     val syncedLyrics: String?,
     val plainLyrics: String?
 )
+
 data class LyricLine(
     val timeMs: Long,
     val text: String
 )
+
 interface LrcLibService {
     @GET("api/search")
     suspend fun searchLyrics(
@@ -55,6 +57,7 @@ interface LrcLibService {
         @ApiQuery("artist_name") artist: String
     ): List<LrcResponse>
 }
+
 interface TranslationService {
     @GET("translate_a/single")
     suspend fun getTranslation(
@@ -65,6 +68,7 @@ interface TranslationService {
         @ApiQuery("q") q: String
     ): List<Any>
 }
+
 private val lrcService: LrcLibService by lazy {
     retrofit2.Retrofit.Builder()
         .baseUrl("https://lrclib.net/")
@@ -79,14 +83,17 @@ private val translationService: TranslationService by lazy {
         .build()
         .create(TranslationService::class.java)
 }
+
 @Dao
 interface JishoDao {
     @SqlQuery("SELECT * FROM dictionary WHERE kanji = :query OR reading = :query LIMIT 1")
     fun getDefinition(query: String): JishoEntry?
 }
+
 private val queryCache = mutableMapOf<String, JishoEntry?>()
 private val jpCharacterRegex = Regex("[\\u3040-\\u30ff\\u4e00-\\u9faf]")
 private val singleKanaRegex = Regex("[\\u3040-\\u30ff]")
+
 @Entity(
     tableName = "dictionary",
     indices = [
@@ -101,6 +108,7 @@ data class JishoEntry(
     @ColumnInfo(name = "reading") val reading: String?,
     @ColumnInfo(name = "meanings") val definition: String?
 )
+
 @Database(entities = [JishoEntry::class], version = 1, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun jishoDao(): JishoDao
@@ -124,6 +132,7 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+
 // 1. The new model to hold raw data for Anki and color syncing
 data class JishoWord(
     val phrase: String,
@@ -265,7 +274,13 @@ class MainActivity : AppCompatActivity() {
                             // Save the complete object for the UI and Anki
                             songDictionary[phrase]?.let { formatted ->
                                 lineJishoWords.add(
-                                    JishoWord(phrase, reading ?: phrase, definitionText, formatted, wordIndex)
+                                    JishoWord(
+                                        phrase,
+                                        reading ?: phrase,
+                                        definitionText,
+                                        formatted,
+                                        wordIndex
+                                    )
                                 )
                             }
                         }
@@ -281,7 +296,10 @@ class MainActivity : AppCompatActivity() {
                 // Log slow lines (anything taking more than 100ms)
                 val lineTotal = System.currentTimeMillis() - lineStart
                 if (lineTotal > 100) {
-                    Log.w("Lyrisync", "Slow line [$index] took ${lineTotal}ms (Extraction: ${extractDuration}ms)")
+                    Log.w(
+                        "Lyrisync",
+                        "Slow line [$index] took ${lineTotal}ms (Extraction: ${extractDuration}ms)"
+                    )
                 }
             }
 
@@ -293,9 +311,13 @@ class MainActivity : AppCompatActivity() {
                 val uiStart = System.currentTimeMillis()
                 lyricAdapter?.updateData(lyrics, translatedLyrics, furiganaLyrics, highlightsList)
                 Log.d("Lyrisync", "UI Update took: ${System.currentTimeMillis() - uiStart}ms")
-                Log.i("Lyrisync", "TOTAL PREFETCH TIME: ${System.currentTimeMillis() - startTime}ms")
+                Log.i(
+                    "Lyrisync",
+                    "TOTAL PREFETCH TIME: ${System.currentTimeMillis() - startTime}ms"
+                )
             }
-        }}
+        }
+    }
 
     private fun displayPreparedLine(lineIndex: Int) {
         val preparedBox = preparedLineSets[lineIndex]
@@ -312,7 +334,10 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } else {
-            Log.d("Lyrisync-Debug", "displayPreparedLine: NO DATA for index $lineIndex. (Blank line or still loading)")
+            Log.d(
+                "Lyrisync-Debug",
+                "displayPreparedLine: NO DATA for index $lineIndex. (Blank line or still loading)"
+            )
         }
     }
 
@@ -322,13 +347,14 @@ class MainActivity : AppCompatActivity() {
         // remove status and navbar of android (fullscreen app)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Make app draw edge-to-edge
-//            WindowCompat.setDecorFitsSystemWindows(window, false)
+            // WindowCompat.setDecorFitsSystemWindows(window, false)
 
             // Get controller
             val controller = WindowCompat.getInsetsController(window, window.decorView)
 
             // Optional: allow swipe to temporarily show bars
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
             // Hide status + navigation bars (fullscreen)
             controller.hide(WindowInsetsCompat.Type.statusBars())
@@ -361,60 +387,82 @@ class MainActivity : AppCompatActivity() {
         syncBtn.setOnCheckedChangeListener { _, isChecked ->
             isSyncEnabled = isChecked
             if (isChecked) {
-                syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf("#1DB954".toColorInt())
+                syncBtn.backgroundTintList =
+                    android.content.res.ColorStateList.valueOf("#1DB954".toColorInt())
             } else {
-                syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.GRAY)
+                syncBtn.backgroundTintList =
+                    android.content.res.ColorStateList.valueOf(android.graphics.Color.GRAY)
             }
         }
 
-        // --- 3. BULLETPROOF BOTTOM NAVIGATION ---
-        val homeScreen = findViewById<View>(R.id.homeScreen)
-        val settingsScreen = findViewById<View>(R.id.settingsScreen)
+        // --- 3. BOTTOM NAVIGATION ---
+        val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
+        val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
+        val bottomNavigationView =
+            findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
 
-        // Get the exact width of the user's phone screen
-        val screenWidth = resources.displayMetrics.widthPixels.toFloat()
+        // The .post block waits for the UI to measure itself before doing math
+        homeScreen.post {
+            // Get the EXACT pixel width of this specific phone's screen
+            val trueWidth = homeScreen.width.toFloat()
 
-        // Ensure settings is off-screen initially
-        settingsScreen.translationX = screenWidth
+            // 1. ROTATION FIX: Snap to the correct screen instantly when the app loads or rotates
+            if (bottomNavigationView.selectedItemId == R.id.nav_settings) {
+                homeScreen.translationX = -trueWidth
+                settingsScreen.translationX = 0f
+            } else {
+                homeScreen.translationX = 0f
+                settingsScreen.translationX = trueWidth
+            }
 
-        val bottomNavigationView = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
+            // 2. THE ANIMATION WIRING
+            bottomNavigationView.setOnItemSelectedListener { item ->
+                when (item.itemId) {
+                    R.id.nav_home -> {
+                        // Slide Home in (to 0), Slide Settings out (to trueWidth)
+                        homeScreen.animate().translationX(0f).setDuration(300).start()
+                        settingsScreen.animate().translationX(trueWidth).setDuration(300).start()
 
-        bottomNavigationView.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.nav_home -> {
-                    // Slide Home in, Slide Settings out
-                    homeScreen.animate().translationX(0f).setDuration(300).start()
-                    settingsScreen.animate().translationX(screenWidth).setDuration(300).start()
+                        findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(0)
+                        true
+                    }
 
-                    findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(0)
-                    true
+                    R.id.nav_search -> {
+                        android.widget.Toast.makeText(
+                            this@MainActivity,
+                            "Search coming soon!",
+                            android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        false
+                    }
+
+                    R.id.nav_settings -> {
+                        // Slide Settings in (to 0), Slide Home out (to -trueWidth)
+                        homeScreen.animate().translationX(-trueWidth).setDuration(300).start()
+                        settingsScreen.animate().translationX(0f).setDuration(300).start()
+                        true
+                    }
+
+                    else -> false
                 }
-                R.id.nav_search -> {
-                    android.widget.Toast.makeText(this, "Search coming soon!", android.widget.Toast.LENGTH_SHORT).show()
-                    false
-                }
-                R.id.nav_settings -> {
-                    // Slide Settings in, Slide Home out
-                    homeScreen.animate().translationX(-screenWidth).setDuration(300).start()
-                    settingsScreen.animate().translationX(0f).setDuration(300).start()
-                    true
-                }
-                else -> false
             }
         }
         // --- BACK BUTTON INTERCEPTOR ---
-        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                // If we are NOT on the home tab, slide back to home
-                if (bottomNavigationView.selectedItemId != R.id.nav_home) {
-                    bottomNavigationView.selectedItemId = R.id.nav_home // This automatically triggers the slide animation!
-                } else {
-                    // If we ARE on home, let the app close normally
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    // If we are NOT on the home tab, slide back to home
+                    if (bottomNavigationView.selectedItemId != R.id.nav_home) {
+                        bottomNavigationView.selectedItemId =
+                            R.id.nav_home // This automatically triggers the slide animation!
+                    } else {
+                        // If we ARE on home, let the app close normally
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
                 }
-            }
-        })
+            })
     }
 
     override fun onStart() {
@@ -428,6 +476,7 @@ class MainActivity : AppCompatActivity() {
                 spotifyAppRemote = appRemote
                 connected()
             }
+
             override fun onFailure(throwable: Throwable) {
                 Log.e("Lyrisync", "Connection failed: ${throwable.message}", throwable)
                 runOnUiThread {
@@ -489,7 +538,8 @@ class MainActivity : AppCompatActivity() {
                     parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
 
                     val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
-                    val translationResponse = translationService.getTranslation(q = fullJapaneseText)
+                    val translationResponse =
+                        translationService.getTranslation(q = fullJapaneseText)
                     val bulkResult = extractTextFromGoogle(translationResponse)
                     translatedLyrics = bulkResult.split("\n")
 
@@ -497,7 +547,12 @@ class MainActivity : AppCompatActivity() {
 
                     withContext(Dispatchers.Main) {
                         Log.d("Lyrisync-Debug", "0. Pushing empty lists to UI while DB loads")
-                        lyricAdapter?.updateData(parsedLyrics, translatedLyrics, emptyList(), emptyList())
+                        lyricAdapter?.updateData(
+                            parsedLyrics,
+                            translatedLyrics,
+                            emptyList(),
+                            emptyList()
+                        )
                     }
                 } else {
                     parsedLyrics = listOf()
@@ -598,6 +653,7 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
         "#E57373".toColorInt(), // Red
         "#BA68C8".toColorInt()  // Purple
     )
+
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val lineHeader: TextView = view.findViewById(R.id.lineHeader)
         val container: android.widget.LinearLayout = view.findViewById(R.id.definitionsContainer)
@@ -645,12 +701,18 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
 
                 // Add a subtle ripple effect when tapped
                 val typedValue = android.util.TypedValue()
-                context.theme.resolveAttribute(android.R.attr.selectableItemBackground, typedValue, true)
-                foreground = androidx.core.content.ContextCompat.getDrawable(context, typedValue.resourceId)
+                context.theme.resolveAttribute(
+                    android.R.attr.selectableItemBackground,
+                    typedValue,
+                    true
+                )
+                foreground =
+                    androidx.core.content.ContextCompat.getDrawable(context, typedValue.resourceId)
 
                 setOnClickListener {
                     // Format the text for the flashcard
-                    val flashcardText = "${jishoWord.phrase} [${jishoWord.reading}]\n\n${jishoWord.meaning}"
+                    val flashcardText =
+                        "${jishoWord.phrase} [${jishoWord.reading}]\n\n${jishoWord.meaning}"
 
                     // Create an Android Share Intent (AnkiDroid will appear in this list!)
                     val sendIntent = android.content.Intent().apply {
@@ -658,12 +720,14 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                         putExtra(android.content.Intent.EXTRA_TEXT, flashcardText)
                         type = "text/plain"
                     }
-                    val shareIntent = android.content.Intent.createChooser(sendIntent, "Send to Anki")
+                    val shareIntent =
+                        android.content.Intent.createChooser(sendIntent, "Send to Anki")
                     context.startActivity(shareIntent)
                 }
             }
             holder.container.addView(smallBox)
         }
     }
+
     override fun getItemCount() = history.size
 }

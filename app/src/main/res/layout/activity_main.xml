@@ -120,7 +120,7 @@
             android:orientation="vertical"
             android:background="#121212"
             android:padding="24dp"
-            android:translationX="1000dp"
+            android:translationX="5000dp"
             android:elevation="10dp">
 
             <TextView
