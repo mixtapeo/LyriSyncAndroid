@@ -1,4 +1,4 @@
-package com.example.lyrisync
+package com.mixtapeo.lyrisync
 
 import org.junit.Test
 

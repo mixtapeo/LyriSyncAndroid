@@ -1,4 +1,4 @@
-package com.example.lyrisync
+package com.mixtapeo.lyrisync
 
 import android.content.Context
 import android.os.Bundle
@@ -6,7 +6,6 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowInsetsController
 import android.widget.TextView
 import android.widget.ToggleButton
 import androidx.appcompat.app.AppCompatActivity
@@ -23,7 +22,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import androidx.core.graphics.toColorInt
-import androidx.core.view.WindowInsetsCompat
 import androidx.room.Query as SqlQuery
 import retrofit2.http.Query as ApiQuery
 import androidx.room.Dao
@@ -33,6 +31,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.core.content.edit
 
 data class LrcResponse(
     val id: Int,
@@ -81,7 +80,6 @@ interface JishoDao {
     @SqlQuery("SELECT * FROM dictionary WHERE kanji = :query OR reading = :query LIMIT 1")
     fun getDefinition(query: String): JishoEntry?
 }
-private val preparedLineSets = mutableMapOf<Int, JishoLineSet>()
 private val queryCache = mutableMapOf<String, JishoEntry?>()
 private val jpCharacterRegex = Regex("[\\u3040-\\u30ff\\u4e00-\\u9faf]")
 private val singleKanaRegex = Regex("[\\u3040-\\u30ff]")
@@ -348,8 +346,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         // --- 3. BULLETPROOF BOTTOM NAVIGATION ---
-        val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
-        val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
+        val homeScreen = findViewById<View>(R.id.homeScreen)
+        val settingsScreen = findViewById<View>(R.id.settingsScreen)
 
         // Get the exact width of the user's phone screen
         val screenWidth = resources.displayMetrics.widthPixels.toFloat()
@@ -403,7 +401,6 @@ class MainActivity : AppCompatActivity() {
             .setRedirectUri(redirectUri)
             .showAuthView(true)
             .build()
-
         SpotifyAppRemote.connect(this, connectionParams, object : Connector.ConnectionListener {
             override fun onConnected(appRemote: SpotifyAppRemote) {
                 spotifyAppRemote = appRemote
@@ -499,7 +496,7 @@ class MainActivity : AppCompatActivity() {
             lyricAdapter?.activeIndex = index
             lyricAdapter?.notifyDataSetChanged()
 
-            val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
+            val sharedPrefs = getSharedPreferences("LyriSyncPrefs", MODE_PRIVATE)
             val isSyncEnabled = sharedPrefs.getBoolean("AUTO_SYNC", true)
             if (isSyncEnabled) {
                 displayPreparedLine(index)
@@ -543,7 +540,7 @@ class MainActivity : AppCompatActivity() {
         val refreshLyricsRequested = sharedPrefs.getBoolean("REFRESH_LYRICS_REQUESTED", false)
         if (refreshLyricsRequested) {
             findViewById<RecyclerView>(R.id.lyricRecyclerView).adapter?.notifyDataSetChanged()
-            sharedPrefs.edit().putBoolean("REFRESH_LYRICS_REQUESTED", false).apply()
+            sharedPrefs.edit { putBoolean("REFRESH_LYRICS_REQUESTED", false) }
         }
     }
 }

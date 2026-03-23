@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.example.lyrisync"
+    namespace = "com.mixtapeo.lyrisync"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.lyrisync"
+        applicationId = "com.mixtapeo.lyrisync"
         minSdk = 24
         targetSdk = 36
         versionCode = 1

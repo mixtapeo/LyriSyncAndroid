@@ -8,6 +8,7 @@
 - ui doesnt go to neutral state if going from song with lyric to no lyric. it just keeps old page. must update
 - background using colors from album art?
 - send word to anki w time in song n all metadata
-- link an anki deck and only show words in jisho tab that arent in anki deck
+- link an Anki deck and only show words in jisho tab that arent in anki deck
 - big box around one line of words to group those
 - for some reason, some words arent translated
+- add a "non Japanese threshold" where if > than amount of not japanese in a song, treat as non translation

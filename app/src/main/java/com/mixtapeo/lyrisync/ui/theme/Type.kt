@@ -1,4 +1,4 @@
-package com.example.lyrisync.ui.theme
+package com.mixtapeo.lyrisync.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

@@ -1,4 +1,4 @@
-package com.example.lyrisync
+package com.mixtapeo.lyrisync
 
 import android.content.Context
 import android.os.Bundle
