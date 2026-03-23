@@ -1,6 +1,7 @@
 package com.mixtapeo.lyrisync
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -32,6 +33,9 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.core.content.edit
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 
 data class LrcResponse(
     val id: Int,
@@ -314,9 +318,27 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-        actionBar?.hide()
         setContentView(R.layout.activity_main)
+        // remove status and navbar of android (fullscreen app)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            // Make app draw edge-to-edge
+//            WindowCompat.setDecorFitsSystemWindows(window, false)
+
+            // Get controller
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+
+            // Optional: allow swipe to temporarily show bars
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+            // Hide status + navigation bars (fullscreen)
+            controller.hide(WindowInsetsCompat.Type.statusBars())
+            controller.hide(WindowInsetsCompat.Type.navigationBars())
+        } else {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+        }
+
+
 
         findViewById<TextView>(R.id.songTitleText)?.text = "App Started! Connecting..."
         Log.d("Lyrisync", "onCreate finished")

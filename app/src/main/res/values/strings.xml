@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">LyriSync</string>
+    <string name="settings_page">Settings</string>
 </resources>

@@ -119,17 +119,57 @@
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:background="#121212"
-            android:padding="16dp"
+            android:padding="24dp"
             android:translationX="1000dp"
             android:elevation="10dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Settings Page"
+                android:text="Settings"
                 android:textColor="#FFFFFF"
-                android:textSize="24sp"
-                android:textStyle="bold"/>
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="32dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Subtitle Display Mode"
+                android:textColor="#A0A0A0"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp"/>
+
+            <RadioGroup
+                android:id="@+id/subtitleRadioGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="32dp">
+
+                <RadioButton android:id="@+id/radioNone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="None" android:textColor="#FFFFFF" android:buttonTint="#1DB954" android:padding="8dp"/>
+                <RadioButton android:id="@+id/radioFurigana" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Furigana Only" android:textColor="#FFFFFF" android:buttonTint="#1DB954" android:padding="8dp"/>
+                <RadioButton android:id="@+id/radioBoth" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Furigana + English Translation" android:textColor="#FFFFFF" android:buttonTint="#1DB954" android:padding="8dp"/>
+                <RadioButton android:id="@+id/radioEnglish" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="English Translation Only" android:textColor="#FFFFFF" android:buttonTint="#1DB954" android:padding="8dp"/>
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Data Management"
+                android:textColor="#A0A0A0"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="12dp"/>
+
+            <Button
+                android:id="@+id/wipeHistoryButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Clear Dictionary History"
+                android:backgroundTint="#E57373"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
 
         </LinearLayout>
     </FrameLayout>
