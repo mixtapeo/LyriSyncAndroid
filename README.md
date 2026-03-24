@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="250" alt="osu! logo" src="app/src/main/ic_launcher-playstore.png">
+  <img width="250" alt="lyrisync logo" src="app/src/main/ic_launcher-playstore.png">
 </p>
 
 # LyriSync Android
