@@ -371,6 +371,7 @@ class MainActivity : AppCompatActivity() {
         // 3. Update the Top Bar Metadata
         findViewById<TextView>(R.id.songTitleText).text = selectedMatch.name
         findViewById<TextView>(R.id.artistNameText).text = selectedMatch.artistName
+        findViewById<TextView>(R.id.NoLyricsText).visibility = View.GONE
 
         // 4. Process the Lyrics just like the normal flow!
         lifecycleScope.launch(Dispatchers.IO) {
@@ -773,43 +774,55 @@ class MainActivity : AppCompatActivity() {
 
     private fun fetchLyrics(title: String, artist: String) {
         lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val response = lrcService.searchLyrics(title, artist)
-                val jpRegex = Regex("[\\u3040-\\u30ff\\u4e00-\\u9faf]")
+            val result = withContext(Dispatchers.IO) {
+                try {
+                    val response = lrcService.searchLyrics(title, artist)
+                    val jpRegex = Regex("[\\u3040-\\u30ff\\u4e00-\\u9faf]")
 
-                val bestMatch = response
-                    .filter { it.syncedLyrics != null }
-                    .firstOrNull { it.syncedLyrics?.contains(jpRegex) == true }
-                    ?: response.firstOrNull { it.syncedLyrics != null }
+                    val bestMatch = response
+                        .filter { it.syncedLyrics != null }
+                        .firstOrNull { it.syncedLyrics?.contains(jpRegex) == true }
+                        ?: response.firstOrNull { it.syncedLyrics != null }
 
-                if (bestMatch != null) {
-                    parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
-                    Log.d("LyriSync-debug", "Lyrics are: $parsedLyrics")
-                    val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
-                    val translationResponse =
-                        translationService.getTranslation(q = fullJapaneseText)
-                    val bulkResult = extractTextFromGoogle(translationResponse)
-                    translatedLyrics = bulkResult.split("\n")
+                    if (bestMatch != null) {
+                        parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
+                        Log.d("LyriSync-debug", "Lyrics are: $parsedLyrics")
+                        val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
+                        val translationResponse =
+                            translationService.getTranslation(q = fullJapaneseText)
+                        val bulkResult = extractTextFromGoogle(translationResponse)
+                        translatedLyrics = bulkResult.split("\n")
 
-                    prefetchSongDictionary(parsedLyrics)
+                        prefetchSongDictionary(parsedLyrics)
 
-                    withContext(Dispatchers.Main) {
-                        Log.d("Lyrisync-Debug", "0. Pushing empty lists to UI while DB loads")
-                        lyricAdapter?.updateData(
-                            parsedLyrics,
-                            translatedLyrics,
-                            emptyList(),
-                            emptyList()
-                        )
+                        withContext(Dispatchers.Main) {
+                            Log.d("Lyrisync-Debug", "0. Pushing empty lists to UI while DB loads")
+                            lyricAdapter?.updateData(
+                                parsedLyrics,
+                                translatedLyrics,
+                                emptyList(),
+                                emptyList()
+                            )
+                            // no lyrics text
+                            findViewById<TextView>(R.id.NoLyricsText).visibility = View.GONE
+                        }
+                    } else {
+                        parsedLyrics = listOf()
+                        Log.d("Lyrisync-Debug", "1. No Lyrics Found")
+                        withContext(Dispatchers.Main) {
+                            lyricAdapter?.updateData(
+                                parsedLyrics,
+                                listOf(),
+                                emptyList(),
+                                emptyList()
+                            )
+                            // show no lyrics text
+                            findViewById<TextView>(R.id.NoLyricsText).visibility = View.VISIBLE
+                        }
                     }
-                } else {
-                    parsedLyrics = listOf()
-                    withContext(Dispatchers.Main) {
-                        lyricAdapter?.updateData(parsedLyrics, listOf(), emptyList(), emptyList())
-                    }
+                } catch (e: Exception) {
+                    Log.e("Lyrisync", "Fetch failed: ${e.message}", e)
                 }
-            } catch (e: Exception) {
-                Log.e("Lyrisync", "Fetch failed: ${e.message}", e)
             }
         }
     }

@@ -53,15 +53,31 @@
                     android:textSize="14sp" />
             </LinearLayout>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/lyricRecyclerView"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
-                android:layout_weight="5"
-                android:background="#121212"
-                android:clipToPadding="false"
-                android:paddingTop="24dp"
-                android:paddingBottom="80dp" />
+                android:layout_weight="5">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/lyricRecyclerView"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="#121212"
+                    android:clipToPadding="false"
+                    android:paddingTop="24dp"
+                    android:paddingBottom="80dp" />
+
+                <TextView
+                    android:id="@+id/NoLyricsText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:enabled="false"
+                    android:text="No Lyrics Found"
+                    android:textColor="#424242"
+                    android:textSize="24sp"
+                    android:layout_gravity="center" />
+
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -138,8 +154,8 @@
             android:elevation="10dp"
             android:orientation="vertical"
             android:padding="24dp"
-            android:translationX="0dp">
-<!--5000dp-->
+            android:translationX="5000dp">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
