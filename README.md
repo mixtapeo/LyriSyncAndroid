@@ -1,3 +1,7 @@
+<p align="center">
+  <img width="250" alt="osu! logo" src="app/src/main/ic_launcher-playstore.png">
+</p>
+
 # LyriSync Android
 Live translate each sentence, stream definitions of each phrase, and filter definitions (with an Anki Deck) for a streaming Spotify song!
 
