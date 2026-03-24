@@ -448,7 +448,7 @@ class MainActivity : AppCompatActivity() {
                 View.SYSTEM_UI_FLAG_FULLSCREEN
         }
 
-        findViewById<TextView>(R.id.songTitleText)?.text = "App Started! Connecting..."
+        findViewById<TextView>(R.id.songTitleText)?.text = "Waiting for Spotify..."
         Log.d("Lyrisync", "onCreate finished")
 
         // setup settings views
@@ -699,6 +699,12 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             })
+
+        // first run setup
+        val isFirstRun = sharedPrefs.getBoolean("IS_FIRST_RUN", true)
+        if (isFirstRun) {
+            showFirstStartDialog(sharedPrefs)
+        }
     }
 
     private var reconnectTry = 0
@@ -706,7 +712,29 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        reconnectToSpotify()
+        // first run check to give popup
+        val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
+        val isFirstRun = sharedPrefs.getBoolean("IS_FIRST_RUN", true)
+
+        // Only auto-connect if it's NOT the first time
+        if (!isFirstRun) {
+            reconnectToSpotify()
+        }
+    }
+
+    private fun showFirstStartDialog(prefs: android.content.SharedPreferences) {
+        // Pass the style here: R.style.RoundedDialog
+        androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialog)
+            .setTitle("Welcome to LyriSync!")
+            .setMessage("To sync lyrics, please ensure:\n\n" +
+                    "1. The Spotify app is open.\n" +
+                    "2. You 'Allow' LyriSync to connect when the Spotify prompt appears.\n" +
+                    "3. 'Device Broadcast Status' is ON in Spotify settings.")
+            .setPositiveButton("Got it!") { dialog, _ ->
+                prefs.edit().putBoolean("IS_FIRST_RUN", false).apply()
+                reconnectToSpotify()
+            }
+            .show()
     }
 
     private fun reconnectToSpotify() {

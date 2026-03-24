@@ -5,4 +5,7 @@
     <style name="M3BottomNavOverride" parent="">
         <item name="colorSecondaryContainer">#1DB954</item>
     </style>
+    <style name="RoundedDialog" parent="Theme.MaterialComponents.DayNight.Dialog.Alert">
+        <item name="android:windowBackground">@drawable/dialog_background</item>
+    </style>
 </resources>

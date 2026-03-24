@@ -231,7 +231,7 @@
                 android:id="@+id/wipeHistoryButton"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginBottom="32dp"
                 android:backgroundTint="#E57373"
                 android:text="Clear Dictionary History"
                 android:textColor="#FFFFFF"
@@ -250,7 +250,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:contentDescription="mrow"
-                android:valueFrom="0"
+                android:valueFrom="1"
                 android:valueTo="7"
                 android:stepSize="1"  />
 
