@@ -1,6 +1,5 @@
 # LyriSync Android
-## Intro
-A language learning app that syncs a Spotify song. You can view live translations of each sentence, stream definitions of each phrase, and filter definitions shown through any given Anki decks.
+Live translate each sentence, stream definitions of each phrase, and filter definitions (with an Anki Deck) for a streaming Spotify song!
 
 <p align="center">
   <img width="288" height="640" alt="image" src="https://github.com/user-attachments/assets/6a724fd0-61a9-4030-ac02-9c444f89c113" />
@@ -15,6 +14,7 @@ For this reason, db is pushed to RAM to allow fast querying
 ## Planned features / bugs lol:
 - background using colors from album art?
 - send word to anki w time in song n all metadata
+- Add a pop up to inform user to open spotify when null error (spotify kills self)
 - link an Anki deck and only show words in jisho tab that arent in anki deck
 - streaming jisho in bg
 - nicer resync (manual -> sync) animation and not a cut
@@ -27,3 +27,6 @@ For this reason, db is pushed to RAM to allow fast querying
 -x ui doesnt go to neutral state if going from song with lyric to no lyric. it just keeps old page. must update
 -x big box around one line of words to group those
 -x add a "non Japanese threshold" where if > than amount of not japanese in a song, treat as non translation
+
+## License
+Project uses GNU General Public License v3.0

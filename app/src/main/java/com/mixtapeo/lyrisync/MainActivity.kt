@@ -369,9 +369,11 @@ class MainActivity : AppCompatActivity() {
         syncBtn.backgroundTintList = ColorStateList.valueOf(Color.GRAY)
 
         // 3. Update the Top Bar Metadata
-        findViewById<TextView>(R.id.songTitleText).text = selectedMatch.name
-        findViewById<TextView>(R.id.artistNameText).text = selectedMatch.artistName
-        findViewById<TextView>(R.id.NoLyricsText).visibility = View.GONE
+        runOnUiThread {
+            findViewById<TextView>(R.id.songTitleText).text = selectedMatch.name
+            findViewById<TextView>(R.id.artistNameText).text = selectedMatch.artistName
+            findViewById<TextView>(R.id.NoLyricsText).visibility = View.GONE
+        }
 
         // 4. Process the Lyrics just like the normal flow!
         lifecycleScope.launch(Dispatchers.IO) {
