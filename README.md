@@ -18,6 +18,7 @@ For this reason, db is pushed to RAM to allow fast querying
 - link an Anki deck and only show words in jisho tab that arent in anki deck
 - streaming jisho in bg
 - nicer resync (manual -> sync) animation and not a cut
+- Loading circle for whenever loading: https://m3.material.io/components/progress-indicators/overview
 -x underlining parts of sentences
 -x auto mode, kanji only mode
   -x kanji only is just kanji in jisho
