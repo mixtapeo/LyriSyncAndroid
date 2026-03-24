@@ -9,6 +9,7 @@ import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.slider.Slider
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -23,6 +24,7 @@ class SettingsActivity : AppCompatActivity() {
         val radioGroupSubtitle = findViewById<RadioGroup>(R.id.spinnerSubtitleMode)
         val btnClearHistory = findViewById<Button>(R.id.wipeHistoryButton)
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+        val rangeSlider = findViewById<Slider>(R.id.slider)
 
         val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
 
@@ -68,14 +70,18 @@ class SettingsActivity : AppCompatActivity() {
                     finish()
                     true
                 }
+
                 R.id.nav_search -> {
                     Toast.makeText(this, "Search coming soon!", Toast.LENGTH_SHORT).show()
                     false
                 }
+
                 R.id.nav_settings -> true
                 else -> false
             }
         }
+
+        // slider
     }
 
     @Suppress("DEPRECATION")

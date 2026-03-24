@@ -513,6 +513,28 @@ class MainActivity : AppCompatActivity() {
         jishoRv.adapter = jishoAdapter
         jishoRv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
+        // --- SETUP DEFINITION LIMIT SLIDER ---
+        val defSlider = findViewById<com.google.android.material.slider.Slider>(R.id.slider)
+
+        // Load the saved state (Default to 3 definitions if they haven't touched it)
+        val savedLimit = sharedPrefs.getInt("DEF_LIMIT", 3)
+        defSlider.value = savedLimit.toFloat()
+
+        // Pass initial value to the adapter
+        jishoAdapter.definitionLimit = savedLimit
+
+        // Listen for drags
+        defSlider.addOnChangeListener { _, value, _ ->
+            val newLimit = value.toInt()
+
+            // Save state permanently
+            sharedPrefs.edit().putInt("DEF_LIMIT", newLimit).apply()
+
+            // Update Adapter and force an instant UI redraw
+            jishoAdapter.definitionLimit = newLimit
+            jishoAdapter.notifyDataSetChanged()
+        }
+
         // OBSERVE: When the activeIndex changes, update ONLY the affected rows
         lifecycleScope.launch {
             viewModel.activeIndex.collect { newIndex ->
@@ -631,7 +653,8 @@ class MainActivity : AppCompatActivity() {
                             settingsScreen.translationX = trueWidth
                         } else {
                             homeScreen.animate().translationX(0f).setDuration(300).start()
-                            settingsScreen.animate().translationX(trueWidth).setDuration(300).start()
+                            settingsScreen.animate().translationX(trueWidth).setDuration(300)
+                                .start()
                         }
 
                         searchScreen.animate().translationY(trueHeight).setDuration(300).start()
@@ -651,6 +674,7 @@ class MainActivity : AppCompatActivity() {
                         searchScreen.animate().translationY(0f).setDuration(300).start()
                         true
                     }
+
                     R.id.nav_settings -> {
                         if (isSearchCurrentlyOpen) {
                             // Instant Snap (No animation)
@@ -864,6 +888,7 @@ fun parseLrc(lrcContent: String): List<LyricLine> {
 
 class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
     RecyclerView.Adapter<JishoHistoryAdapter.ViewHolder>() {
+    var definitionLimit = 3
 
     // Same Color Palette as the Lyrics!
     private val highlightColors = intArrayOf(
@@ -889,13 +914,24 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
         val item = history[position]
         holder.lineHeader.text = item.lyricText
         holder.container.removeAllViews()
-
         val context = holder.itemView.context
 
         // Loop through our new JishoWord objects
         for (jishoWord in item.words) {
             val smallBox = TextView(context).apply {
-                text = jishoWord.formattedText
+
+                // --- 1. THE CHOPPING LOGIC ---
+                val limitedDefinitions = jishoWord.meaning
+                    .split(" / ")
+                    .take(definitionLimit) // Use the live slider limit!
+                    .joinToString(" / ")
+
+                // --- 2. DYNAMIC REBUILD ---
+                val spannable = android.text.SpannableStringBuilder()
+                val displayReading = jishoWord.reading.ifBlank { jishoWord.phrase }
+                spannable.append("【 ${jishoWord.phrase} 】 ($displayReading)\n→ $limitedDefinitions\n\n")
+
+                text = spannable
                 textSize = 15f
                 setTextColor(android.graphics.Color.parseColor("#E0E0E0"))
                 setPadding(32, 24, 32, 24)
@@ -907,19 +943,18 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                 marginParams.setMargins(0, 0, 0, 16)
                 layoutParams = marginParams
 
-                // 1. Color Match: Set the border stroke to match the lyric highlight!
+                // 3. Color Match
                 val assignedColor = highlightColors[jishoWord.wordIndex % highlightColors.size]
                 val drawable = android.graphics.drawable.GradientDrawable()
                 drawable.setColor("#383838".toColorInt())
                 drawable.cornerRadius = 16f
-                drawable.setStroke(4, assignedColor) // 4px colored border
+                drawable.setStroke(4, assignedColor)
                 background = drawable
 
-                // 2. Anki Integration: Make the box clickable
+                // 4. Anki Integration
                 isClickable = true
                 isFocusable = true
 
-                // Add a subtle ripple effect when tapped
                 val typedValue = android.util.TypedValue()
                 context.theme.resolveAttribute(
                     android.R.attr.selectableItemBackground,
@@ -930,11 +965,10 @@ class JishoHistoryAdapter(private val history: List<JishoLineSet>) :
                     androidx.core.content.ContextCompat.getDrawable(context, typedValue.resourceId)
 
                 setOnClickListener {
-                    // Format the text for the flashcard
+                    // Send the newly limited text to Anki so you don't get bloated flashcards!
                     val flashcardText =
-                        "${jishoWord.phrase} [${jishoWord.reading}]\n\n${jishoWord.meaning}"
+                        "${jishoWord.phrase} [${jishoWord.reading}]\n\n$limitedDefinitions"
 
-                    // Create an Android Share Intent (AnkiDroid will appear in this list!)
                     val sendIntent = android.content.Intent().apply {
                         action = android.content.Intent.ACTION_SEND
                         putExtra(android.content.Intent.EXTRA_TEXT, flashcardText)
