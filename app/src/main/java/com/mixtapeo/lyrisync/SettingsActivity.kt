@@ -2,90 +2,91 @@ package com.mixtapeo.lyrisync
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log // Added Log import
 import android.view.View
-import android.widget.AdapterView
-import android.widget.ArrayAdapter
 import android.widget.Button
-import android.widget.Spinner
+import android.widget.RadioGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
+import com.google.android.material.bottomnavigation.BottomNavigationView
 
 class SettingsActivity : AppCompatActivity() {
 
+    // Define a Tag for filtering in Logcat
+    private val TAG = "LyriSync_Settings"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_settings)
+        setContentView(R.layout.activity_main)
+        Log.d(TAG, "onCreate: SettingsActivity started")
 
-        val switchAutoScroll = findViewById<SwitchCompat>(R.id.switchAutoScroll)
-        val btnClearHistory = findViewById<Button>(R.id.btnClearHistory)
-        val spinnerSubtitleMode = findViewById<Spinner>(R.id.spinnerSubtitleMode)
+        val radioGroupSubtitle = findViewById<RadioGroup>(R.id.spinnerSubtitleMode)
+        val btnClearHistory = findViewById<Button>(R.id.wipeHistoryButton)
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottomNavigation)
+
         val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
 
-        // --- 1. Setup the Dropdown (Spinner) ---
-        val subtitleOptions = arrayOf("None", "Furigana", "Furigana + Translation", "Only Translation")
+        // --- 1. Setup RadioGroup (Subtitle Mode) ---
+        val idToIndex = mapOf(
+            R.id.radioNone to 0,
+            R.id.radioFurigana to 1,
+            R.id.radioBoth to 2,
+            R.id.radioEnglish to 3
+        )
 
-        // Use a built-in Android layout for the spinner items to keep it simple and dark-mode friendly
-        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, subtitleOptions)
-        spinnerSubtitleMode.adapter = adapter
+        val indexToId = idToIndex.entries.associate { it.value to it.key }
 
-        // Load saved state (Default to 2: "Furigana + Translation")
         val savedSubtitleMode = sharedPrefs.getInt("SUBTITLE_MODE", 2)
-        spinnerSubtitleMode.setSelection(savedSubtitleMode)
+        Log.d(TAG, "Loading saved Subtitle Mode index: $savedSubtitleMode")
+        indexToId[savedSubtitleMode]?.let { radioGroupSubtitle.check(it) }
 
-        // Save state on change
-        spinnerSubtitleMode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                sharedPrefs.edit().putInt("SUBTITLE_MODE", position).apply()
-                // Tell MainActivity it needs to redraw the lyrics when we go back
-                sharedPrefs.edit().putBoolean("REFRESH_LYRICS_REQUESTED", true).apply()
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        radioGroupSubtitle.setOnCheckedChangeListener { _, checkedId ->
+            val position = idToIndex[checkedId] ?: 2
+            Log.i(TAG, "Subtitle mode changed. New Index: $position (ID: $checkedId)")
+
+            sharedPrefs.edit()
+                .putInt("SUBTITLE_MODE", position)
+                .putBoolean("REFRESH_LYRICS_REQUESTED", true)
+                .apply()
         }
 
-        // --- 2. Setup the existing Switch and Button ---
-        switchAutoScroll.isChecked = sharedPrefs.getBoolean("AUTO_SYNC", true)
-
-        switchAutoScroll.setOnCheckedChangeListener { _, isChecked ->
-            sharedPrefs.edit().putBoolean("AUTO_SYNC", isChecked).apply()
-        }
-
+        // --- 2. Setup History Button ---
         btnClearHistory.setOnClickListener {
+            Log.w(TAG, "Wipe History requested by user.")
             sharedPrefs.edit().putBoolean("WIPE_REQUESTED", true).apply()
             Toast.makeText(this, "History cleared!", Toast.LENGTH_SHORT).show()
         }
-        // --- BOTTOM NAVIGATION WIRING (SETTINGS SCREEN) ---
-        val bottomNavigationView = findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
 
-        // 1. Force the UI to highlight the Settings gear icon!
+        // --- 3. Bottom Navigation ---
         bottomNavigationView.selectedItemId = R.id.nav_settings
 
-        // 2. Listen for taps
         bottomNavigationView.setOnItemSelectedListener { item ->
+            Log.d(TAG, "Navigation item clicked: ${item.title}")
             when (item.itemId) {
                 R.id.nav_home -> {
-                    // Because MainActivity is sitting right underneath this screen,
-                    // going "Home" just means destroying the Settings screen!
+                    Log.d(TAG, "Navigating back to Home (finishing activity)")
                     finish()
                     true
                 }
                 R.id.nav_search -> {
-                    android.widget.Toast.makeText(this, "Search coming soon!", android.widget.Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Search coming soon!", Toast.LENGTH_SHORT).show()
                     false
                 }
-                R.id.nav_settings -> {
-                    // We are already here, do nothing.
-                    true
-                }
+                R.id.nav_settings -> true
                 else -> false
             }
         }
     }
-    // This intercepts the activity closing and plays our reverse animation
+
     @Suppress("DEPRECATION")
     override fun finish() {
+        Log.d(TAG, "finish() called - applying exit transitions")
         super.finish()
-        // Forces the reverse slide animation when you press the back button
         overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right)
+    }
+
+    override fun onDestroy() {
+        Log.d(TAG, "onDestroy: SettingsActivity destroyed")
+        super.onDestroy()
     }
 }

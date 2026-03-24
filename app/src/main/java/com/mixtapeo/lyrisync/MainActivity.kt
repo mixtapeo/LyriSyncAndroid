@@ -1,6 +1,7 @@
 package com.mixtapeo.lyrisync
 
 import android.content.Context
+import android.content.res.ColorStateList
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -9,7 +10,12 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.ToggleButton
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import android.graphics.Color
+import android.widget.Button
+import android.widget.RadioGroup
+import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import com.spotify.android.appremote.api.ConnectionParams
@@ -151,7 +157,7 @@ data class JishoWord(
 // 2. Update the Big Box model to use our new word model
 data class JishoLineSet(
     val lyricText: String,
-    val words: List<JishoWord> // Changed from List<CharSequence>
+    val words: List<JishoWord>
 )
 
 class MainActivity : AppCompatActivity() {
@@ -159,7 +165,6 @@ class MainActivity : AppCompatActivity() {
     private var lyricAdapter: LyricAdapter? = null
     private var parsedLyrics = listOf<LyricLine>()
     private var syncJob: Job? = null
-
     private val clientId = "06f5df4fd4234a06bbc234600ed42851"
     private val redirectUri = "lyrisync://callback"
     private var spotifyAppRemote: SpotifyAppRemote? = null
@@ -168,6 +173,7 @@ class MainActivity : AppCompatActivity() {
     private val jishoHistory = mutableListOf<JishoLineSet>()
     private lateinit var jishoAdapter: JishoHistoryAdapter
     private val preparedLineSets = mutableMapOf<Int, JishoLineSet>()
+    private val viewModel: LyriSyncViewModel by viewModels()
 
     private fun extractWordsFromLine(text: String, dao: JishoDao): List<String> {
         val foundWords = mutableListOf<String>()
@@ -311,7 +317,9 @@ class MainActivity : AppCompatActivity() {
 
             val totalProcessingTime = System.currentTimeMillis() - loopStart
             Log.d("Lyrisync", "Total Loop Processing: ${totalProcessingTime}ms")
-            Log.d("Lyrisync", "Average per line: ${totalProcessingTime / lyrics.size}ms")
+            if (lyrics.isNotEmpty()) {
+                Log.d("Lyrisync", "Average per line: ${totalProcessingTime / lyrics.size}ms")
+            }
 
             withContext(Dispatchers.Main) {
                 val uiStart = System.currentTimeMillis()
@@ -348,6 +356,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadManualSearchResult(selectedMatch: LrcResponse) {
+        viewModel.setSource(LyricSource.MANUAL) // Switch to Manual
         // 1. Close Search Drawer and go back to Home Screen
         val bottomNavigationView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
@@ -355,7 +364,9 @@ class MainActivity : AppCompatActivity() {
 
         // 2. Force Sync Toggle to OFF (Manual Mode)
         val syncBtn = findViewById<ToggleButton>(R.id.syncToggleButton)
+        // UI Updates
         syncBtn.isChecked = false
+        syncBtn.backgroundTintList = ColorStateList.valueOf(Color.GRAY)
 
         // 3. Update the Top Bar Metadata
         findViewById<TextView>(R.id.songTitleText).text = selectedMatch.name
@@ -366,7 +377,6 @@ class MainActivity : AppCompatActivity() {
             try {
                 // Handle both synced LRC and plain text lyrics
                 val rawLyrics = selectedMatch.syncedLyrics ?: selectedMatch.plainLyrics ?: ""
-
                 parsedLyrics = if (selectedMatch.syncedLyrics != null) {
                     parseLrc(rawLyrics)
                 } else {
@@ -407,24 +417,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun focusLine(index: Int) {
-        if (index < 0 || index >= parsedLyrics.size) return
+        val currentSource = viewModel.source.value
 
-        // 1. Update the UI Highlight immediately
-        activeIndex = index
-        lyricAdapter?.activeIndex = index
-        lyricAdapter?.notifyDataSetChanged()
-
-        // 2. Show the dictionary Kanji boxes for this specific line
-        displayPreparedLine(index)
-
-        // 3. Smooth scroll to ensure the tapped line is centered on screen
-        findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(index)
-
-        // 4. THE MAGIC: If Auto-Sync is ON, tell Spotify to jump to this part of the song!
-        if (isSyncEnabled) {
-            val targetMs = parsedLyrics[index].timeMs
-            spotifyAppRemote?.playerApi?.seekTo(targetMs)
+        if (currentSource == LyricSource.SPOTIFY) {
+            // OPTIONAL: Just scroll to it, but DON'T seek Spotify
+            // or simply return and do nothing to prevent accidental jumps
+            return
         }
+
+        // MANUAL MODE LOGIC
+        activeIndex = index
+        viewModel.updateActiveIndex(index)
+
+        // We explicitly DO NOT call spotifyAppRemote?.playerApi?.seekTo(targetMs) here
+        // because we are in Manual mode.
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -453,6 +459,45 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.songTitleText)?.text = "App Started! Connecting..."
         Log.d("Lyrisync", "onCreate finished")
 
+        // setup settings views
+        val radioGroupSubtitle = findViewById<RadioGroup>(R.id.spinnerSubtitleMode)
+        val btnClearHistory = findViewById<Button>(R.id.wipeHistoryButton)
+        val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
+
+        // --- Setup Subtitle Radio Logic ---
+        val idToIndex = mapOf(
+            R.id.radioNone to 0,
+            R.id.radioFurigana to 1,
+            R.id.radioBoth to 2,
+            R.id.radioEnglish to 3
+        )
+        val indexToId = idToIndex.entries.associate { it.value to it.key }
+
+        // Load saved state
+        val savedSubtitleMode = sharedPrefs.getInt("SUBTITLE_MODE", 2)
+        indexToId[savedSubtitleMode]?.let { radioGroupSubtitle.check(it) }
+
+        radioGroupSubtitle.setOnCheckedChangeListener { _, checkedId ->
+            val position = idToIndex[checkedId] ?: 2
+            Log.i("LyriSync", "Subtitle mode changed: $position")
+
+            sharedPrefs.edit()
+                .putInt("SUBTITLE_MODE", position)
+                .putBoolean("REFRESH_LYRICS_REQUESTED", true)
+                .apply()
+
+            // Trigger an immediate refresh of the list if lyrics are already loaded
+            lyricAdapter?.notifyDataSetChanged()
+        }
+
+        // --- Setup Wipe History Logic ---
+        btnClearHistory.setOnClickListener {
+            Log.w("LyriSync", "Wipe History requested.")
+            jishoHistory.clear()
+            jishoAdapter.notifyDataSetChanged()
+            Toast.makeText(this, "History cleared!", Toast.LENGTH_SHORT).show()
+        }
+
         // --- 1. SETUP MAIN CONTENT LISTS ---
         val recyclerView = findViewById<RecyclerView>(R.id.lyricRecyclerView)
         val snapHelper = androidx.recyclerview.widget.LinearSnapHelper()
@@ -468,43 +513,44 @@ class MainActivity : AppCompatActivity() {
         jishoRv.adapter = jishoAdapter
         jishoRv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
+        // OBSERVE: When the activeIndex changes, update ONLY the affected rows
+        lifecycleScope.launch {
+            viewModel.activeIndex.collect { newIndex ->
+                val oldIndex = lyricAdapter?.activeIndex ?: -1
+
+                // Update the adapter's internal state
+                lyricAdapter?.activeIndex = newIndex
+
+                // OPTIMIZATION: Only refresh the two lines that changed!
+                if (oldIndex != -1) lyricAdapter?.notifyItemChanged(oldIndex)
+                if (newIndex != -1) {
+                    lyricAdapter?.notifyItemChanged(newIndex)
+
+                    // Auto-scroll and Dict Box logic
+                    findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(
+                        newIndex
+                    )
+                    displayPreparedLine(newIndex)
+                }
+            }
+        }
+
         // --- 2. SETUP SYNC TOGGLE & ANIMATION ---
         val syncBtn = findViewById<ToggleButton>(R.id.syncToggleButton)
         val floatingWarning = findViewById<TextView>(R.id.floatingWarningText) // Grab the new text
         syncBtn.setOnCheckedChangeListener { _, isChecked ->
-            isSyncEnabled = isChecked
-
             if (isChecked) {
-                // Visual Update: Green
-                syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf("#1DB954".toColorInt())
+                viewModel.setSource(LyricSource.SPOTIFY)
 
-                // RE-ENGAGE SPOTIFY
+                // Force a re-fetch of the ACTUAL Spotify song
                 spotifyAppRemote?.playerApi?.playerState?.setResultCallback { playerState ->
                     val track = playerState.track
                     if (track != null) {
-                        currentTrackUri = track.uri
-                        activeIndex = -1
-                        findViewById<TextView>(R.id.songTitleText).text = track.name
-                        findViewById<TextView>(R.id.artistNameText).text = track.artist.name
-
                         fetchLyrics(track.name, track.artist.name)
                     }
                 }
             } else {
-                // Visual Update: Grey (Manual Mode)
-                syncBtn.backgroundTintList = android.content.res.ColorStateList.valueOf(android.graphics.Color.GRAY)
-
-                // --- THE MICRO-ANIMATION ---
-                // 1. Reset the text to be fully visible and in its starting position
-                floatingWarning.alpha = 1f
-                floatingWarning.translationY = 0f
-
-                // 2. Animate it floating up and fading out!
-                floatingWarning.animate()
-                    .translationY(-80f) // Slide it 80 pixels straight up
-                    .alpha(0f)          // Fade it to completely transparent
-                    .setDuration(1500)  // Take 1.5 seconds to complete the animation
-                    .start()
+                viewModel.setSource(LyricSource.MANUAL)
             }
         }
         // Set the initial default tooltip
@@ -517,7 +563,7 @@ class MainActivity : AppCompatActivity() {
         // The .post block waits for the UI to measure itself before doing math
         val homeScreen = findViewById<android.view.View>(R.id.homeScreen)
         val settingsScreen = findViewById<android.view.View>(R.id.settingsScreen)
-        val searchScreen = findViewById<android.view.View>(R.id.searchScreen) // NEW
+        val searchScreen = findViewById<android.view.View>(R.id.searchScreen)
         val bottomNavigationView =
             findViewById<com.google.android.material.bottomnavigation.BottomNavigationView>(R.id.bottomNavigation)
 
@@ -713,7 +759,7 @@ class MainActivity : AppCompatActivity() {
 
                 if (bestMatch != null) {
                     parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
-
+                    Log.d("LyriSync-debug", "Lyrics are: $parsedLyrics")
                     val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
                     val translationResponse =
                         translationService.getTranslation(q = fullJapaneseText)
@@ -744,23 +790,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun syncLyricsToPosition(currentMs: Long) {
-        // 1. FAST FAIL: If Manual mode is on, ignore the Spotify clock completely!
-        if (!isSyncEnabled) return
+        // Only sync if Spotify is the current source
+        if (viewModel.source.value != LyricSource.SPOTIFY) return
 
-        // 2. Find which lyric line matches the current millisecond timestamp
         val index = parsedLyrics.indexOfLast { it.timeMs <= currentMs }
 
-        // 3. If we moved to a new line, update the UI
         if (index != -1 && index != activeIndex) {
-            activeIndex = index
-            lyricAdapter?.activeIndex = index
-            lyricAdapter?.notifyDataSetChanged()
-
-            // Drop the new Kanji dictionary box into the history list
-            displayPreparedLine(index)
-
-            // Smoothly scroll the lyric list so the active line is visible
-            findViewById<RecyclerView>(R.id.lyricRecyclerView).smoothScrollToPosition(index)
+            activeIndex = index // Keep local sync for safety
+            viewModel.updateActiveIndex(index) // This triggers the observer in onCreate
         }
     }
 
