@@ -43,7 +43,12 @@ import androidx.core.content.edit
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import android.os.Handler
+import android.os.Looper
+import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedException
 
+// Define it at the class level
+private val mainHandler = Handler(Looper.getMainLooper())
 data class LrcResponse(
     val id: Int,
     val name: String,
@@ -215,7 +220,7 @@ class MainActivity : AppCompatActivity() {
 
         runOnUiThread {
             jishoHistory.clear()
-                jishoAdapter.notifyDataSetChanged()
+            jishoAdapter.notifyDataSetChanged()
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -696,22 +701,43 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
+    private var reconnectTry = 0
+    private val maxRetries = 3
+
     override fun onStart() {
         super.onStart()
-        val connectionParams =
-            ConnectionParams.Builder(clientId).setRedirectUri(redirectUri).showAuthView(true)
-                .build()
+        reconnectToSpotify()
+    }
+
+    private fun reconnectToSpotify() {
+        val connectionParams = ConnectionParams.Builder(clientId)
+            .setRedirectUri(redirectUri)
+            .showAuthView(true)
+            .build()
+
         SpotifyAppRemote.connect(this, connectionParams, object : Connector.ConnectionListener {
             override fun onConnected(appRemote: SpotifyAppRemote) {
+                reconnectTry = 0 // Reset counter on success
                 spotifyAppRemote = appRemote
                 connected()
             }
 
             override fun onFailure(throwable: Throwable) {
-                Log.e("Lyrisync", "Connection failed: ${throwable.message}", throwable)
-                runOnUiThread {
-                    val titleView = findViewById<TextView>(R.id.songTitleText)
-                    titleView.text = "Connection Failed: ${throwable.message}"
+                if (throwable is SpotifyConnectionTerminatedException && reconnectTry < maxRetries) {
+                    reconnectTry++
+                    Log.w("Lyrisync", "Connection terminated. Retry attempt $reconnectTry/$maxRetries...")
+                    // Small delay before retrying to avoid spamming
+                    mainHandler.postDelayed({
+                        reconnectToSpotify()
+                    }, 1000) // 1-second delay
+                } else {
+                    // "Else" case: Log and update UI for permanent failure
+                    Log.e("Lyrisync", "Cannot connect: ${throwable.message}", throwable)
+
+                    runOnUiThread {
+                        findViewById<TextView>(R.id.songTitleText)?.text =
+                            "Connection Failed: ${throwable.message}. Make sure Spotify is running (open in the background)."
+                    }
                 }
             }
         })
