@@ -27,8 +27,12 @@ jobs:
       run: chmod +x gradlew
 
     # 1. Build the Release APK
-    - name: Build Release APK
+    - name: Build with Gradle
       run: ./gradlew assembleRelease
+      env:
+        # These pass the GitHub metadata into your Gradle script
+        GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        GITHUB_REF_NAME: ${{ github.ref_name }}
 
     # 2. Sign the APK (Uses a community action to handle the Keystore secret)
     - name: Sign APK
