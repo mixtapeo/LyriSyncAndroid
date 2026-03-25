@@ -44,7 +44,7 @@ jobs:
           keyStorePassword: '${{ secrets.KEYSTORE_PASSWORD }}'
           keyPassword: '${{ secrets.KEY_PASSWORD }}'
         env:
-          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
+          BUILD_TOOLS_VERSION: "36.1.0"
       - name: Upload to GitHub Release
         if: 'startsWith(github.ref, ''refs/tags/'')'
         uses: softprops/action-gh-release@v2
