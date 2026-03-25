@@ -3,7 +3,7 @@
 </p>
 
 # LyriSync Android
-Live translate each sentence, stream definitions of each phrase, and filter definitions (with an Anki Deck) for a streaming Spotify song!
+Live translate each sentence, stream definitions of each phrase, and filter definitions (with an Anki deck) for a streaming Spotify song!
 
 <p align="center">
   <img width="288" height="640" alt="image" src="https://github.com/user-attachments/assets/6a724fd0-61a9-4030-ac02-9c444f89c113" />
@@ -23,14 +23,14 @@ For this reason, db is pushed to RAM to allow fast querying
 - streaming jisho in bg
 - nicer resync (manual -> sync) animation and not a cut
 - Loading circle for whenever loading: https://m3.material.io/components/progress-indicators/overview
--x underlining parts of sentences
--x auto mode, kanji only mode
-  -x kanji only is just kanji in jisho
-  -x auto is using many words in one token
--x settings page to change to furigana, kata or hirigana under.
--x ui doesnt go to neutral state if going from song with lyric to no lyric. it just keeps old page. must update
--x big box around one line of words to group those
--x add a "non Japanese threshold" where if > than amount of not japanese in a song, treat as non translation
+- x underlining parts of sentences
+- x auto mode, kanji only mode
+  - x kanji only is just kanji in jisho
+  - x auto is using many words in one token
+- x settings page to change to furigana, kata or hirigana under.
+- x ui doesnt go to neutral state if going from song with lyric to no lyric. it just keeps old page. must update
+- x big box around one line of words to group those
+- x add a "non Japanese threshold" where if > than amount of not japanese in a song, treat as non translation
 
 ## License
 Project uses GNU General Public License v3.0
