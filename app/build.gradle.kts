@@ -12,8 +12,11 @@ android {
         applicationId = "com.mixtapeo.lyrisync"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.2"
+        // Use GitHub Run Number for a unique, incrementing integer
+        versionCode System.getenv("GITHUB_RUN_NUMBER")?.toInteger() ?: 1
+
+        // Use the Git Tag for the user-facing version name
+        versionName System.getenv("GITHUB_REF_NAME") ?: "1.0-debug"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
