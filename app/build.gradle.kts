@@ -28,7 +28,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            // signingConfig = signingConfigs.getByName("debug")
+
+            // This ensures the APK stays "unsigned" so the GitHub Action can sign it properly
+            signingConfig = null
         }
     }
     compileOptions {
