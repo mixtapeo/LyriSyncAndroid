@@ -72,3 +72,11 @@ jobs:
             echo "Error: Source APK not found at $SOURCE_FILE"
             exit 1
           fi
+      - name: Upload to GitHub Release
+        if: 'startsWith(github.ref, ''refs/tags/'')'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: '${{ env.FINAL_APK }}'
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
