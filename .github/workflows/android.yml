@@ -28,10 +28,12 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: '${{ github.run_number }}'
           GITHUB_REF_NAME: '${{ github.ref_name }}'
-      - name: Setup Android Build Tools
-        run: >
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
-          "build-tools;34.0.0"
+      - name: Setup build tool version variable
+        shell: bash
+        run: |
+          BUILD_TOOL_VERSION=$(ls /usr/local/lib/android/sdk/build-tools/ | tail -n 1)
+          echo "BUILD_TOOL_VERSION=$BUILD_TOOL_VERSION" >> $GITHUB_ENV
+          echo Last build tool version is: $BUILD_TOOL_VERSION
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
@@ -42,7 +44,7 @@ jobs:
           keyStorePassword: '${{ secrets.KEYSTORE_PASSWORD }}'
           keyPassword: '${{ secrets.KEY_PASSWORD }}'
         env:
-          BUILD_TOOLS_VERSION: "30.0.2"
+          BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
       - name: Upload to GitHub Release
         if: 'startsWith(github.ref, ''refs/tags/'')'
         uses: softprops/action-gh-release@v2
