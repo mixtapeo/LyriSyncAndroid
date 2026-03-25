@@ -45,14 +45,28 @@ jobs:
           keyPassword: '${{ secrets.KEY_PASSWORD }}'
         env:
           BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
+
       - name: Rename Signed APK
-        run: mv ${{ steps.sign_app.outputs.signedReleaseFile }} app/build/outputs/apk/release/LyriSync-${{ github.ref_name }}.apk
-            echo "NEW_APK_PATH=app/build/outputs/apk/release/LyriSync-${{ github.ref_name }}.apk" >> $GITHUB_ENV
+        # Only run if signing succeeded AND we are pushing a tag
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          OLD_PATH="${{ steps.sign_app.outputs.signedReleaseFile }}"
+          NEW_NAME="LyriSync-${{ github.ref_name }}.apk"
+          NEW_PATH="app/build/outputs/apk/release/$NEW_NAME"
+          
+          mv "$OLD_PATH" "$NEW_PATH"
+          
+          # Save the new path for the next step
+          echo "NEW_APK_PATH=$NEW_PATH" >> $GITHUB_ENV
+          echo "Renamed APK to $NEW_NAME"
+
       - name: Upload to GitHub Release
-        if: 'startsWith(github.ref, ''refs/tags/'')'
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: '${{ steps.sign_app.outputs.signedReleaseFile }}'
+          # Use the environment variable set in the Rename step
+          files: ${{ env.NEW_APK_PATH }}
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
