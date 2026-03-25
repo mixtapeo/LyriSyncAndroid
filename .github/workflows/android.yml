@@ -46,27 +46,30 @@ jobs:
         env:
           BUILD_TOOLS_VERSION: ${{ env.BUILD_TOOL_VERSION }}
 
-      - name: Rename Signed APK
-        # Only run if signing succeeded AND we are pushing a tag
+      - name: Rename and Isolate Signed APK
         if: success() && startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
+          # Create a clean directory for the final artifact
+          mkdir -p final_binaries
+          
           OLD_PATH="${{ steps.sign_app.outputs.signedReleaseFile }}"
           NEW_NAME="LyriSync-${{ github.ref_name }}.apk"
-          NEW_PATH="app/build/outputs/apk/release/$NEW_NAME"
+          NEW_PATH="final_binaries/$NEW_NAME"
           
+          # Move the file to the new clean folder
           mv "$OLD_PATH" "$NEW_PATH"
           
-          # Save the new path for the next step
-          echo "NEW_APK_PATH=$NEW_PATH" >> $GITHUB_ENV
-          echo "Renamed APK to $NEW_NAME"
+          # Pass the specific NEW_PATH to the environment
+          echo "FINAL_APK=$NEW_PATH" >> $GITHUB_ENV
+          echo "Prepared $NEW_NAME for release."
 
-      - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          # Use the environment variable set in the Rename step
-          files: ${{ env.NEW_APK_PATH }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          - name: Upload to GitHub Release
+            if: startsWith(github.ref, 'refs/tags/')
+            uses: softprops/action-gh-release@v2
+            with:
+              # Point ONLY to the specific file in the clean folder
+              files: ${{ env.FINAL_APK }}
+              generate_release_notes: true
+            env:
+              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
