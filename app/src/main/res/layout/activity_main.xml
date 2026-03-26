@@ -264,6 +264,7 @@
             android:elevation="20dp"
             android:orientation="vertical"
             android:padding="16dp"
+            android:visibility="invisible"
             android:translationY="5000dp">
 
             <TextView

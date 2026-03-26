@@ -49,6 +49,7 @@ import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedExcept
 
 // Define it at the class level
 private val mainHandler = Handler(Looper.getMainLooper())
+
 data class LrcResponse(
     val id: Int,
     val name: String,
@@ -619,6 +620,8 @@ class MainActivity : AppCompatActivity() {
         homeScreen.post {
             val trueWidth = homeScreen.width.toFloat()
             val trueHeight = homeScreen.height.toFloat() // We need Height for Y-Axis sliding!
+            var isSearchOpen = false
+            var isFirstTimeOpeningSearch = true // first time app is launched, search shows for some reason. So this when true will help toggle it visible from invisible
 
             // Initial State setup
             if (bottomNavigationView.selectedItemId == R.id.nav_settings) {
@@ -632,51 +635,49 @@ class MainActivity : AppCompatActivity() {
             }
 
             bottomNavigationView.setOnItemSelectedListener { item ->
-                // Check what tab we are CURRENTLY on before the change happens
-                val isSearchCurrentlyOpen = bottomNavigationView.selectedItemId == R.id.nav_search
-
+                val trueWidth = homeScreen.width.toFloat()
+                val trueHeight = homeScreen.height.toFloat()
                 when (item.itemId) {
                     R.id.nav_home -> {
-                        if (isSearchCurrentlyOpen) {
-                            homeScreen.translationX = 0f
-                            settingsScreen.translationX = trueWidth
-                        } else {
-                            homeScreen.animate().translationX(0f).setDuration(300).start()
-                            settingsScreen.animate().translationX(trueWidth).setDuration(300)
-                                .start()
+                        // ONLY slide search down if we didn't just come from a manual search-close
+                        if (isSearchOpen) {
+                            searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                            isSearchOpen = false
                         }
 
-                        searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                        homeScreen.animate().translationX(0f).setDuration(300).start()
+                        settingsScreen.animate().translationX(trueWidth).setDuration(300).start()
 
-                        // THE FIX: Scroll to the active line, not to 0!
                         val rv = findViewById<RecyclerView>(R.id.lyricRecyclerView)
-                        if (activeIndex != -1) {
-                            // If a song is playing, snap right back to where we were
-                            rv.scrollToPosition(activeIndex)
-                        }
-
+                        if (activeIndex != -1) rv.scrollToPosition(activeIndex)
                         true
                     }
 
                     R.id.nav_search -> {
-                        // Slide Search UP (to 0) over top of whatever is currently on screen
-                        searchScreen.animate().translationY(0f).setDuration(300).start()
+                        if (isSearchOpen) {
+                            // CLOSE
+                            searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                            isSearchOpen = false
+                            bottomNavigationView.selectedItemId = R.id.nav_home
+                        } else {
+                            // OPEN
+                            if (isFirstTimeOpeningSearch){
+                                searchScreen.visibility = View.VISIBLE // since hidden by default, we set to visible whenever it wants to be shown lol
+                            }
+                            searchScreen.animate().translationY(0f).setDuration(300).start()
+                            isSearchOpen = true
+                        }
                         true
                     }
 
                     R.id.nav_settings -> {
-                        if (isSearchCurrentlyOpen) {
-                            // Instant Snap (No animation)
-                            homeScreen.translationX = -trueWidth
-                            settingsScreen.translationX = 0f
-                        } else {
-                            // Smooth Slide (Normal X-axis navigation)
-                            homeScreen.animate().translationX(-trueWidth).setDuration(300).start()
-                            settingsScreen.animate().translationX(0f).setDuration(300).start()
+                        // If search is open, slide it away
+                        if (isSearchOpen) {
+                            searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                            isSearchOpen = false
                         }
-
-                        // Always slide Search DOWN and out of the way
-                        searchScreen.animate().translationY(trueHeight).setDuration(300).start()
+                        homeScreen.animate().translationX(-trueWidth).setDuration(300).start()
+                        settingsScreen.animate().translationX(0f).setDuration(300).start()
                         true
                     }
 
@@ -726,10 +727,12 @@ class MainActivity : AppCompatActivity() {
         // Pass the style here: R.style.RoundedDialog
         androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialog)
             .setTitle("Welcome to LyriSync!")
-            .setMessage("To sync lyrics, please ensure:\n\n" +
-                    "1. The Spotify app is open.\n" +
-                    "2. You 'Allow' LyriSync to connect when the Spotify prompt appears.\n" +
-                    "3. 'Device Broadcast Status' is ON in Spotify settings.")
+            .setMessage(
+                "To sync lyrics, please ensure:\n\n" +
+                        "1. The Spotify app is open.\n" +
+                        "2. You 'Allow' LyriSync to connect when the Spotify prompt appears.\n" +
+                        "3. 'Device Broadcast Status' is ON in Spotify settings."
+            )
             .setPositiveButton("Got it!") { dialog, _ ->
                 prefs.edit().putBoolean("IS_FIRST_RUN", false).apply()
                 reconnectToSpotify()
@@ -753,7 +756,10 @@ class MainActivity : AppCompatActivity() {
             override fun onFailure(throwable: Throwable) {
                 if (throwable is SpotifyConnectionTerminatedException && reconnectTry < maxRetries) {
                     reconnectTry++
-                    Log.w("Lyrisync", "Connection terminated. Retry attempt $reconnectTry/$maxRetries...")
+                    Log.w(
+                        "Lyrisync",
+                        "Connection terminated. Retry attempt $reconnectTry/$maxRetries..."
+                    )
                     // Small delay before retrying to avoid spamming
                     mainHandler.postDelayed({
                         reconnectToSpotify()
