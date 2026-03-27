@@ -14,6 +14,7 @@ import android.widget.ToggleButton
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import android.graphics.Color
+import android.os.Build.VERSION.SDK_INT
 import android.widget.Button
 import android.widget.RadioGroup
 import android.widget.Toast
@@ -45,9 +46,12 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import android.os.Handler
 import android.os.Looper
+import android.widget.ImageView
 import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedException
-
-// Define it at the class level
+import coil.ImageLoader
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.load
 private val mainHandler = Handler(Looper.getMainLooper())
 
 data class LrcResponse(
@@ -457,6 +461,7 @@ class MainActivity : AppCompatActivity() {
         val btnClearHistory = findViewById<Button>(R.id.wipeHistoryButton)
         val sharedPrefs = getSharedPreferences("LyriSyncPrefs", MODE_PRIVATE)
 
+
         // --- Setup Subtitle Radio Logic ---
         val idToIndex = mapOf(
             R.id.radioNone to 0,
@@ -687,6 +692,7 @@ class MainActivity : AppCompatActivity() {
                             true // Highlight search while it's open
                         }
                     }
+
                     else -> false
                 }
             }
@@ -730,20 +736,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFirstStartDialog(prefs: android.content.SharedPreferences) {
-        // Pass the style here: R.style.RoundedDialog
-        androidx.appcompat.app.AlertDialog.Builder(this, R.style.RoundedDialog)
-            .setTitle("Welcome to LyriSync!")
-            .setMessage(
-                "To sync lyrics, please ensure:\n\n" +
-                        "1. The Spotify app is open.\n" +
-                        "2. You 'Allow' LyriSync to connect when the Spotify prompt appears.\n" +
-                        "3. 'Device Broadcast Status' is ON in Spotify settings."
-            )
-            .setPositiveButton("Got it!") { dialog, _ ->
-                prefs.edit().putBoolean("IS_FIRST_RUN", false).apply()
-                reconnectToSpotify()
+        val overlay = findViewById<View>(R.id.onboardingOverlay)
+        val btnOk = findViewById<Button>(R.id.btnOnboardingOk)
+        val btnNever = findViewById<Button>(R.id.btnOnboardingNever)
+        val gifAuthView = findViewById<ImageView>(R.id.gifAuth)
+        val gifBroadcastView = findViewById<ImageView>(R.id.gifBroadcast)
+
+        overlay.visibility = View.VISIBLE
+
+        // 1. Setup Coil ImageLoader with GIF support
+        val imageLoader = ImageLoader.Builder(this)
+            .components {
+                if (SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
             }
-            .show()
+            .build()
+
+        // 2. Load the GIFs (Ensure these files exist in res/drawable)
+        gifAuthView.load(R.drawable.gif_spotify_auth, imageLoader)
+        gifBroadcastView.load(R.drawable.gif_spotify_broadcast, imageLoader)
+
+        // 3. Handle Button Actions
+        btnOk.setOnClickListener {
+            overlay.visibility = View.GONE
+            reconnectToSpotify()
+        }
+
+        btnNever.setOnClickListener {
+            prefs.edit().putBoolean("IS_FIRST_RUN", false).apply()
+            overlay.visibility = View.GONE
+            reconnectToSpotify()
+        }
     }
 
     private fun reconnectToSpotify() {

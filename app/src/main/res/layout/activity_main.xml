@@ -71,11 +71,11 @@
                     android:id="@+id/NoLyricsText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_gravity="center"
                     android:enabled="false"
                     android:text="No Lyrics Found"
                     android:textColor="#424242"
-                    android:textSize="24sp"
-                    android:layout_gravity="center" />
+                    android:textSize="24sp" />
 
             </FrameLayout>
 
@@ -250,9 +250,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:contentDescription="mrow"
+                android:stepSize="1"
                 android:valueFrom="1"
-                android:valueTo="7"
-                android:stepSize="1"  />
+                android:valueTo="7" />
 
         </LinearLayout>
 
@@ -264,8 +264,8 @@
             android:elevation="20dp"
             android:orientation="vertical"
             android:padding="16dp"
-            android:visibility="invisible"
-            android:translationY="5000dp">
+            android:translationY="5000dp"
+            android:visibility="invisible">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -310,4 +310,88 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:menu="@menu/bottom_nav_menu" />
 
+    <FrameLayout
+        android:id="@+id/onboardingOverlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@colorScheme/background"
+        android:clickable="true"
+        android:elevation="100dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Quick Setup"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Follow these steps to sync lyrics"
+                android:textColor="#A0A0A0"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="1. Authorize Spotify"
+                android:textColor="#cc8ca9"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/gifAuth"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:layout_marginTop="8dp"
+                android:background="#1E1E1E"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text="2. Enable Device Broadcast Status"
+                android:textColor="#cc8ca9"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/gifBroadcast"
+                android:layout_width="match_parent"
+                android:layout_height="160dp"
+                android:layout_marginTop="8dp"
+                android:background="#1E1E1E"
+                android:scaleType="centerInside" />
+
+            <Button
+                android:id="@+id/btnOnboardingOk"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="32dp"
+                android:backgroundTint="#cc8ca9"
+                android:text="okay! :)"
+                android:textColor="#000000"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnOnboardingNever"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Don't show again"
+                android:textColor="#A0A0A0" />
+        </LinearLayout>
+    </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
