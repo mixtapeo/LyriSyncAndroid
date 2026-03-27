@@ -12,10 +12,8 @@ android {
         applicationId = "com.mixtapeo.lyrisync"
         minSdk = 24
         targetSdk = 36
-        // System.getenv returns a String?, so we handle the null case and convert to Int
-        versionCode = 2
-        // We trim "v" from the tag if it exists (e.g., v1.0.4 -> 1.0.4)
-        versionName = "v0.2"
+        versionCode = 3
+        versionName = "v0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
