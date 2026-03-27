@@ -403,7 +403,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Quick Setup"
+                android:text="setup"
                 android:textColor="@color/white"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -425,7 +425,7 @@
                 android:textStyle="bold" />
 
             <ImageView
-                android:id="@+id/videoAuth"
+                android:id="@+id/gifVideo"
                 android:layout_width="match_parent"
                 android:layout_height="180dp"
                 android:layout_marginTop="8dp"
@@ -465,6 +465,84 @@
                 android:layout_height="wrap_content"
                 android:text="don't show again"
                 android:textColor="@color/brand_secondary" />
+        </LinearLayout>
+    </FrameLayout>
+    <FrameLayout
+        android:id="@+id/SpotifyAuthRequest"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@color/brand_background"
+        android:clickable="true"
+        android:elevation="100dp"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:padding="24dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="spotify troubleshooting."
+                android:textColor="@color/white"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text='hit "allow" when prompted by spotify:'
+                android:textColor="@color/purple_200"
+                android:textStyle="bold" />
+
+            <ImageView
+                android:id="@+id/videoAuth"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:layout_marginTop="8dp"
+                android:background="#000000"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:text='LyriSync relies on Spotify SDK to get track metadata and current playing position.\nYou can still use the app without the Spotify features, but it is not recommended.'
+                android:textColor="@color/purple_200"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnAuthOk"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="32dp"
+                android:backgroundTint="@color/brand_secondary"
+                android:text="open spotify =>"
+                android:textColor="@color/white"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnAuthNever"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="don't show again"
+                android:textColor="@color/brand_secondary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:textSize="8dp"
+                android:paddingTop="24dp"
+                android:text='If you repeatedly get this error and have spotify installed, try unrestricting battery for spotify. Else please raise an issue on github.com/mixtapeo/LyriSyncAndroid'
+                android:textColor="@color/gray"
+                android:textStyle="italic" />
         </LinearLayout>
     </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

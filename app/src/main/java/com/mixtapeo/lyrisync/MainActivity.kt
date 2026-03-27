@@ -51,6 +51,7 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedException
 import coil.load
+import com.spotify.protocol.client.error.RemoteClientException
 
 private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -748,20 +749,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        // first run check to give popup
         val sharedPrefs = getSharedPreferences("LyriSyncPrefs", Context.MODE_PRIVATE)
         val isFirstRun = sharedPrefs.getBoolean("IS_FIRST_RUN", true)
 
-        // Only auto-connect if it's NOT the first time
         if (!isFirstRun) {
-            reconnectToSpotify()
+            reconnectToSpotify() // Only auto-connect if it's NOT the first time
+            startSpotifyConnectionMonitor() // Start the 1-second checker
         }
     }
 
     // Setup Coil ImageLoader with GIF support
     private fun showFirstStartDialog(prefs: android.content.SharedPreferences) {
         val overlay = findViewById<View>(R.id.onboardingOverlay)
-        val gifAuthView = findViewById<ImageView>(R.id.videoAuth)
+        val gifVideo = findViewById<ImageView>(R.id.gifVideo)
         val gifBroadcastView = findViewById<ImageView>(R.id.gifBroadcast)
         val btnOk = findViewById<Button>(R.id.btnOnboardingOk)
         val btnNever = findViewById<Button>(R.id.btnOnboardingNever)
@@ -780,7 +780,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         // 2. Load using that specific loader
-        gifAuthView.load(R.raw.gif1, animationLoader)
+        gifVideo.load(R.raw.gif1, animationLoader)
         gifBroadcastView.load(R.raw.gif1, animationLoader)
 
         btnOk.setOnClickListener {
@@ -795,37 +795,136 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showSpotifyAuthDialog() {
+        val overlay = findViewById<View>(R.id.SpotifyAuthRequest)
+        val videoAuth = findViewById<ImageView>(R.id.videoAuth)
+        val btnAuthOk = findViewById<Button>(R.id.btnAuthOk)
+        val btnAuthNever = findViewById<Button>(R.id.btnAuthNever)
+
+        overlay.visibility = View.VISIBLE
+
+        // 1. Create a specialized Loader for animations
+        val animationLoader = coil.ImageLoader.Builder(this)
+            .components {
+                if (android.os.Build.VERSION.SDK_INT >= 28) {
+                    add(coil.decode.ImageDecoderDecoder.Factory())
+                } else {
+                    add(coil.decode.GifDecoder.Factory())
+                }
+            }
+            .build()
+
+        // 2. Load using that specific loader
+        videoAuth.load(R.raw.gif1, animationLoader)
+
+        btnAuthOk.setOnClickListener {
+            // 1. Hide the overlay and save the state so they don't see this again
+            overlay.visibility = View.GONE
+
+            // 2. Prepare the intent to launch Spotify
+            val spotifyPackage = "com.spotify.music"
+            val launchIntent = packageManager.getLaunchIntentForPackage(spotifyPackage)
+
+            if (launchIntent != null) {
+                // Spotify IS installed.
+                // We add flags to ensure it launches as a new task, bringing it to the front
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                startActivity(launchIntent)
+
+                // Give Spotify a moment to "wake up" its IPC services before we aggressively try to connect.
+                // A 1.5 second delay usually masks the context-switch nicely.
+                mainHandler.postDelayed({
+                    reconnectToSpotify()
+                }, 1500)
+
+            } else {
+                // Spotify is NOT installed.
+                Toast.makeText(this, "Spotify not installed.", Toast.LENGTH_LONG).show()
+
+                // Fallback: Bounce them to the Google Play Store
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$spotifyPackage")))
+                } catch (e: android.content.ActivityNotFoundException) {
+                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$spotifyPackage")))
+                }
+            }
+        }
+
+        btnAuthNever.setOnClickListener {
+            overlay.visibility = View.GONE
+            reconnectToSpotify()
+        }
+    }
+
+    private var connectionMonitorJob: Job? = null
+
+    private fun startSpotifyConnectionMonitor() {
+        connectionMonitorJob?.cancel() // Reset if already running
+        connectionMonitorJob = lifecycleScope.launch {
+            while (isActive) {
+                val isConnected = spotifyAppRemote?.isConnected ?: false
+
+                if (!isConnected) {
+                    Log.w("Lyrisync", "Spotify disconnected. Attempting background reconnect...")
+                    // Optional: Update UI to show "Connecting..."
+                    reconnectToSpotify()
+                }
+
+                // Wait 1 second before checking again
+                delay(1000)
+            }
+        }
+    }
+
+    private var isConnecting = false
+
     private fun reconnectToSpotify() {
+        if (isConnecting) return
+        isConnecting = true
+
         val connectionParams = ConnectionParams.Builder(clientId)
             .setRedirectUri(redirectUri)
-            .showAuthView(true)
+            .showAuthView(false) // Set to false for background auto-reconnects
             .build()
 
         SpotifyAppRemote.connect(this, connectionParams, object : Connector.ConnectionListener {
             override fun onConnected(appRemote: SpotifyAppRemote) {
-                reconnectTry = 0 // Reset counter on success
+                isConnecting = false
                 spotifyAppRemote = appRemote
                 connected()
             }
 
             override fun onFailure(throwable: Throwable) {
-                if (throwable is SpotifyConnectionTerminatedException && reconnectTry < maxRetries) {
-                    reconnectTry++
-                    Log.w(
-                        "Lyrisync",
-                        "Connection terminated. Retry attempt $reconnectTry/$maxRetries..."
-                    )
-                    // Small delay before retrying to avoid spamming
-                    mainHandler.postDelayed({
-                        reconnectToSpotify()
-                    }, 1000) // 1-second delay
-                } else {
-                    // "Else" case: Log and update UI for permanent failure
-                    Log.e("Lyrisync", "Cannot connect: ${throwable.message}", throwable)
+                isConnecting = false
+                // Extract the root cause of the error
+                val rootCause = throwable.cause
 
-                    runOnUiThread {
-                        findViewById<TextView>(R.id.songTitleText)?.text =
-                            "Connection Failed: ${throwable.message}. Make sure Spotify is running (open in the background)."
+                when {
+                    // 1. Check if the error OR its wrapped cause is the RemoteClientException
+                    throwable is RemoteClientException || rootCause is RemoteClientException -> {
+                        Log.e("Lyrisync", "Spotify connection failed (Auth needed)", throwable)
+                        runOnUiThread {
+                            showSpotifyAuthDialog()
+                        }
+                    }
+
+                    // 2. Handle terminated connections with retry logic
+                    throwable is SpotifyConnectionTerminatedException && reconnectTry < maxRetries -> {
+                        reconnectTry++
+                        Log.w("Lyrisync", "Connection terminated. Retry attempt $reconnectTry/$maxRetries...")
+
+                        mainHandler.postDelayed({
+                            reconnectToSpotify()
+                        }, 1000)
+                    }
+
+                    // 3. Fallback for everything else
+                    else -> {
+                        Log.e("Lyrisync", "Cannot connect: ${throwable.message}", throwable)
+                        runOnUiThread {
+                            findViewById<TextView>(R.id.songTitleText)?.text =
+                                "Connection Failed: ${throwable.message}. Make sure Spotify is running (open in the background)."
+                        }
                     }
                 }
             }
@@ -960,6 +1059,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        connectionMonitorJob?.cancel() // Stop checking when app is hidden
         spotifyAppRemote?.let {
             SpotifyAppRemote.disconnect(it)
         }
