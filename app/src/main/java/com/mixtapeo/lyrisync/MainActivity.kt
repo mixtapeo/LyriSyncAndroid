@@ -780,7 +780,7 @@ class MainActivity : AppCompatActivity() {
             .build()
 
         // 2. Load using that specific loader
-        gifVideo.load(R.raw.gif1, animationLoader)
+        gifVideo.load(R.raw.gif2, animationLoader)
         gifBroadcastView.load(R.raw.gif1, animationLoader)
 
         btnOk.setOnClickListener {
@@ -814,7 +814,7 @@ class MainActivity : AppCompatActivity() {
         btnAuthOk.setOnClickListener {
             overlay.visibility = View.GONE
 
-            // Use the correct Android package name for Spotify!
+
             val spotifyPackage = "com.spotify.music"
             val launchIntent = packageManager.getLaunchIntentForPackage(spotifyPackage)
 
