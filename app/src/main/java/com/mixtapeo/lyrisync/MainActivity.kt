@@ -4,55 +4,56 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.graphics.Color
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.RadioGroup
 import android.widget.TextView
+import android.widget.Toast
 import android.widget.ToggleButton
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import android.graphics.Color
-import android.net.Uri
-import android.widget.Button
-import android.widget.RadioGroup
-import android.widget.Toast
-import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.RecyclerView
-import com.spotify.android.appremote.api.ConnectionParams
-import com.spotify.android.appremote.api.Connector
-import com.spotify.android.appremote.api.SpotifyAppRemote
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import retrofit2.http.GET
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import androidx.core.graphics.toColorInt
-import androidx.room.Query as SqlQuery
-import retrofit2.http.Query as ApiQuery
-import androidx.room.Dao
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-import androidx.room.ColumnInfo
-import androidx.room.Database
-import androidx.room.Room
-import androidx.room.RoomDatabase
 import androidx.core.content.edit
+import androidx.core.graphics.toColorInt
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import android.os.Handler
-import android.os.Looper
-import android.widget.ImageView
-import android.widget.ProgressBar
-import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedException
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.RecyclerView
+import androidx.room.ColumnInfo
+import androidx.room.Dao
+import androidx.room.Database
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.Room
+import androidx.room.RoomDatabase
 import coil.load
-import com.spotify.protocol.client.error.RemoteClientException
 import com.atilika.kuromoji.ipadic.Tokenizer
+import com.spotify.android.appremote.api.ConnectionParams
+import com.spotify.android.appremote.api.Connector
+import com.spotify.android.appremote.api.SpotifyAppRemote
+import com.spotify.android.appremote.api.error.SpotifyConnectionTerminatedException
+import com.spotify.protocol.client.error.RemoteClientException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import retrofit2.http.GET
+import androidx.room.Query as SqlQuery
+import retrofit2.http.Query as ApiQuery
+
 private val mainHandler = Handler(Looper.getMainLooper())
 
 data class LrcResponse(
@@ -685,39 +686,56 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 try {
                     val response = lrcService.searchLyrics(title, artist)
-                    val jpRegex = Regex("[\\u3040-\\u30ff\\u4e00-\\u9faf]")
 
                     val bestMatch = response.filter { it.syncedLyrics != null }
-                        .firstOrNull { it.syncedLyrics?.contains(jpRegex) == true }
+                        .firstOrNull { it.syncedLyrics?.contains(jpCharacterRegex) == true }
                         ?: response.firstOrNull { it.syncedLyrics != null }
 
                     if (bestMatch != null) {
                         parsedLyrics = parseLrc(bestMatch.syncedLyrics!!)
                         Log.d("LyriSync-debug", "Lyrics are: $parsedLyrics")
-                        val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
-                        val translationResponse =
-                            translationService.getTranslation(q = fullJapaneseText)
-                        val bulkResult = extractTextFromGoogle(translationResponse)
-                        translatedLyrics = bulkResult.split("\n")
 
+                        val fullJapaneseText = parsedLyrics.joinToString("\n") { it.text }
+                        // check if song has any kanji (so skip translate on pure english songs); suboptimal but simple
+                        val hasKanji = fullJapaneseText.contains(jpCharacterRegex)
+                        Log.d("LyriSync-debug", "Has kanji: $hasKanji")
+                        // skip translation stuff if no kanji
+                        if (hasKanji) {
+                            // 1. Translate Japanese -> English
+                            val translationResponse =
+                                translationService.getTranslation(q = fullJapaneseText)
+                            Log.d("Lyrisync", "Translation service called + $translationResponse")
+                            val bulkResult = extractTextFromGoogle(translationResponse)
+                            translatedLyrics = bulkResult.split("\n")
+                        } else {
+                            // 2. It's an English song, so "translated" is just the original
+                            translatedLyrics = parsedLyrics.map { it.text }
+                        }
                         prefetchSongDictionary(parsedLyrics)
 
                         withContext(Dispatchers.Main) {
-                            Log.d("Lyrisync-Debug", "0. Pushing empty lists to UI while DB loads")
                             lyricAdapter?.updateData(
-                                parsedLyrics, translatedLyrics, emptyList(), emptyList()
+                                parsedLyrics,
+                                translatedLyrics,
+                                emptyList(),
+                                emptyList()
                             )
-                            // no lyrics text
                             findViewById<TextView>(R.id.NoLyricsText).visibility = View.GONE
                         }
                     } else {
                         // Hide if no lyrics found
                         withContext(Dispatchers.Main) {
                             findViewById<ProgressBar>(R.id.loadingCircle).visibility = View.GONE
-                            lyricAdapter?.updateData(listOf(), listOf(), emptyList(), emptyList())
+                            lyricAdapter?.updateData(
+                                listOf(),
+                                listOf(),
+                                emptyList(),
+                                emptyList()
+                            )
                             findViewById<TextView>(R.id.NoLyricsText).visibility = View.VISIBLE
                         }
                     }
+
                 } catch (e: Exception) {
                     Log.e("Lyrisync", "Fetch failed: ${e.message}", e)
                     withContext(Dispatchers.Main) {
@@ -774,7 +792,10 @@ class MainActivity : AppCompatActivity() {
             // Done on the IO dispatcher because loading the dictionary takes a moment
             val tokenizer = Tokenizer()
 
-            Log.d("Lyrisync", "DB/DAO & Tokenizer Init took: ${System.currentTimeMillis() - dbLoadStart}ms")
+            Log.d(
+                "Lyrisync",
+                "DB/DAO & Tokenizer Init took: ${System.currentTimeMillis() - dbLoadStart}ms"
+            )
 
             val furiganaLyrics = mutableListOf<String>()
             val highlightsList = mutableListOf<List<String>>()
@@ -805,7 +826,8 @@ class MainActivity : AppCompatActivity() {
                 val tokens = tokenizer.tokenize(lineText)
 
                 tokens.forEach { token ->
-                    val surface = token.surface // The exact word as it appears in the song (e.g., "走っ")
+                    val surface =
+                        token.surface // The exact word as it appears in the song (e.g., "走っ")
                     val baseForm = token.baseForm ?: surface // The dictionary form (e.g., "走る")
                     val pos1 = token.partOfSpeechLevel1 // e.g., Noun (名詞), Particle (助詞), etc.
 
@@ -890,7 +912,10 @@ class MainActivity : AppCompatActivity() {
                 findViewById<ProgressBar>(R.id.loadingCircle).visibility = View.GONE
 
                 Log.d("Lyrisync", "UI Update took: ${System.currentTimeMillis() - uiStart}ms")
-                Log.i("Lyrisync", "TOTAL PREFETCH TIME: ${System.currentTimeMillis() - startTime}ms")
+                Log.i(
+                    "Lyrisync",
+                    "TOTAL PREFETCH TIME: ${System.currentTimeMillis() - startTime}ms"
+                )
             }
         }
     }
