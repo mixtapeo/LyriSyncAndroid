@@ -51,6 +51,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import retrofit2.http.GET
+import retrofit2.http.Headers
+import retrofit2.http.Query
 import androidx.room.Query as SqlQuery
 import retrofit2.http.Query as ApiQuery
 import android.net.Uri
@@ -110,15 +112,18 @@ data class LyricLine(
 )
 
 interface LrcLibService {
+    @Headers("User-Agent: LyriSync/1.0 (anirudhsridhar626@email.com)")
     @GET("api/search")
     suspend fun searchLyrics(
-        @ApiQuery("track_name") track: String, @ApiQuery("artist_name") artist: String
+        @Query("track_name") track: String,
+        @Query("artist_name") artist: String
     ): List<LrcResponse>
 
     // for search function
+    @Headers("User-Agent: LyriSync/1.0 (anirudhsridhar626@email.com)")
     @GET("api/search")
     suspend fun searchGeneral(
-        @ApiQuery("q") query: String
+        @Query("q") query: String
     ): List<LrcResponse>
 }
 
@@ -1513,6 +1518,7 @@ class MainActivity : AppCompatActivity() {
         currentFetchJob = lifecycleScope.launch(Dispatchers.IO) {
             withContext(Dispatchers.IO) {
                 try {
+                    Log.d("Lyrisync", "Fetching lyrics for $title by $artist")
                     val response = lrcService.searchLyrics(title, artist)
 
                     val bestMatch = response.filter { it.syncedLyrics != null }

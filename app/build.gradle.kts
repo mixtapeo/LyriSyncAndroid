@@ -20,8 +20,8 @@ android {
         applicationId = "com.mixtapeo.lyrisync"
         minSdk = 24
         targetSdk = 36
-        versionCode = 18
-        versionName = "v0.52"
+        versionCode = 20
+        versionName = "v0.556"
 
         manifestPlaceholders.putAll(
             mapOf(
