@@ -22,17 +22,11 @@ For this reason, db is pushed to RAM to allow fast querying
 - multi lang support?
 - start playing on searched song
 - play pause button (+ settings toggle for this)
-- add a intro page + settings entry to re show intro page
-  - add a link spotify thing
-  - step by step setup
-- add about, github and version boxes in settings
-- background using colors from album art?
 - send word to anki w time in song n all metadata
 - Add a pop up to inform user to open spotify when null error (spotify kills self)
-- link an Anki deck and only show words in jisho tab that arent in anki deck
 - streaming jisho in bg
+-  background using colors from album art?
 - nicer resync (manual -> sync) animation and not a cut
-- Loading circle for whenever loading: https://m3.material.io/components/progress-indicators/overview
 
 ### Done: 
 - x underlining parts of sentences
@@ -43,6 +37,12 @@ For this reason, db is pushed to RAM to allow fast querying
 - x ui doesnt go to neutral state if going from song with lyric to no lyric. it just keeps old page. must update
 - x big box around one line of words to group those
 - x add a "non Japanese threshold" where if > than amount of not japanese in a song, treat as non translation
+- x add a intro page + settings entry to re show intro page
+  - x add a link spotify thing
+  - x step by step setup
+- x add about, github and version boxes in settings
+- x Loading circle for whenever loading: https://m3.material.io/components/progress-indicators/overview
+- x link an Anki deck and only show words in jisho tab that arent in anki deck
 
 ## Credits
 https://github.com/ankidroid/Anki-Android/wiki/AnkiDroid-API - AnkiDroid API
