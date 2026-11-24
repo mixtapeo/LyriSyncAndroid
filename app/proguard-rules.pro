@@ -14,8 +14,20 @@
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+-keepattributes SourceFile,LineNumberTable
 
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
-#-renamesourcefileattribute SourceFile
+-renamesourcefileattribute SourceFile
+
+# Keep Gson / Retrofit API response models from having their JSON field names obfuscated
+-keep class com.mixtapeo.lyrisync.SpotifyPlaybackResponse { *; }
+-keep class com.mixtapeo.lyrisync.SpotifyTrack { *; }
+-keep class com.mixtapeo.lyrisync.SpotifyArtist { *; }
+-keep class com.mixtapeo.lyrisync.SpotifyTokenRefreshResponse { *; }
+-keep class com.mixtapeo.lyrisync.LrcResponse { *; }
+
+# Keep Spotify App Remote protocol models serialized via Gson
+-keep class com.spotify.protocol.types.** { *; }
+-dontwarn com.fasterxml.jackson.databind.**
+-dontwarn com.spotify.base.annotations.**
