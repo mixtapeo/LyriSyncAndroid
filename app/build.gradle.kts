@@ -20,14 +20,14 @@ android {
         applicationId = "com.mixtapeo.lyrisync"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20
-        versionName = "v0.556"
+        versionCode = 21
+        versionName = "v0.6"
 
         manifestPlaceholders.putAll(
             mapOf(
                 "redirectSchemeName" to "lyrisync",
                 "redirectHostName" to "callback",
-                "redirectPathPattern" to ""
+                "redirectPathPattern" to ".*"
             )
         )
 
